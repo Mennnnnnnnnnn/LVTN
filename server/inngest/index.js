@@ -14,7 +14,7 @@ const syncUserCreation = inngest.createFunction(
             _id: id,
             name:first_name + ' ' + last_name,
             email: email_addresses[0].email_address,
-            imageUrl: image_url
+            image: image_url
         };
         await User.create(userData);
     }
@@ -38,7 +38,7 @@ const syncUserUpdation = inngest.createFunction(
             _id: id,
             name:first_name + ' ' + last_name,
             email: email_addresses[0].email_address,
-            imageUrl: image_url
+            image: image_url
         };
         await User.findByIdAndUpdate(id, userData);
     }
