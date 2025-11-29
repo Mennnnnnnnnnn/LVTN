@@ -22,8 +22,8 @@ const Navbar = () => {
 
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Trang Chủ</Link>
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/movies'>Phim</Link>
-            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
-            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
+            {/* <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
+            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link> */}
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/favorite'>Yêu thích</Link>
         </div>
         <div className='flex items-center gap-8'>
