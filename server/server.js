@@ -8,7 +8,7 @@ import { inngest, functions } from "./inngest/index.js";
 import showRouter from './routes/showRoutes.js';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 await connectDB();
 
 // Middleware
