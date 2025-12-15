@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {assets} from '../assets/assets'
 import { MenuIcon, SearchIcon, TicketPlus, XIcon } from 'lucide-react';
 import { useClerk, UserButton, useUser } from '@clerk/clerk-react';
+import { useAppContext } from '../context/AppContext';
 
 
 const Navbar = () => {
@@ -10,6 +11,9 @@ const Navbar = () => {
     const {user} = useUser()
     const {openSignIn} = useClerk()
     const navigate = useNavigate()
+
+    const {favoriteMovies} = useAppContext();
+
   return (
     <div className=' fixed top-0 left-0 z-50 w-full flex items-center justify-between px-6 md:px-16 lg:px-36 py-5'>
         <Link to='/' className='max-md:flex-1 '>
@@ -24,7 +28,7 @@ const Navbar = () => {
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/movies'>Phim</Link>
             {/* <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link> */}
-            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/favorite'>Yêu thích</Link>
+            {favoriteMovies.length > 0 && <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/favorite'>Yêu thích</Link>}
         </div>
         <div className='flex items-center gap-8'>
             <SearchIcon className =' max-md:hidden w-6 h-6 cursor-pointer' />

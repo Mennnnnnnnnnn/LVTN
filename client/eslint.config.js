@@ -23,7 +23,10 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['off'],               // tắt rule unused
+      'react-hooks/set-state-in-effect': 'off', // tắt rule setState trong effect
+      'react-refresh/only-export-components': 'off', // tắt rule only export components
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ])
