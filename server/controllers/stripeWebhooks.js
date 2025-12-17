@@ -37,7 +37,7 @@ export const stripeWebhooks = async (request, response) => {
                         bookingId
                     }
                 })
-
+                
                 break;
             }
             default:
