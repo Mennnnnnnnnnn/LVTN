@@ -1,6 +1,8 @@
 
 import { Inngest } from "inngest";
 import User from "../models/User.js";
+import Booking from "../models/Booking.js";
+import Show from "../models/Show.js";
 // Create a client to send and receive events
 export const inngest = new Inngest({ 
     id: "movie-ticket-booking", 
@@ -61,4 +63,31 @@ const syncUserUpdation = inngest.createFunction(
         }
     }
 )
-export const functions = [syncUserCreation,syncUserDeletion,syncUserUpdation];
+//Chức năng hủy đặt chỗ và giải phóng chỗ ngồi xem chương trình
+// sau 10 phút kể từ khi đặt chỗ được tạo nếu thanh toán không được thực hiện.
+
+const releaseSeatAndDeleteBooking = inngest.createFunction(
+    { id:'release-seats-delete-booking'},
+    { event: "app/checkpayment"},
+    async ({ event, step }) => {
+        const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000);
+        await step.sleepUntil('wait-for-10-minutes', tenMinutesLater);
+
+        await step.run("check-payment-status", async () => {
+            const bookingId = event.data.bookingId;
+            const booking = await Booking.findById(bookingId);
+            // nếu thanh toán chưa được thực hiện, hủy đặt chỗ và giải phóng chỗ ngồi
+            if(!booking.ispaid){
+                const show = await Show.findById(booking.show);
+                booking.bookedSeats.forEach((seat) => {
+                    delete show.occupiedSeats[seat];
+                });
+                show.markModified('occupiedSeats');
+                await show.save();
+                await Booking.findByIdAndDelete(booking._id);
+            }
+        })
+    }
+)
+
+export const functions = [syncUserCreation,syncUserDeletion,syncUserUpdation, releaseSeatAndDeleteBooking];
