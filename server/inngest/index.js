@@ -1,5 +1,5 @@
 
-import { Inngest } from "inngest";
+import { Inngest, step } from "inngest";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import Show from "../models/Show.js";
@@ -111,8 +111,8 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                     <h2>Chào ${booking.user.name},</h2>
                     <p>Đặt chỗ của bạn cho <strong style="color: #F84565;">${booking.show.movie.title}></strong> thanh cong!</p>
                     <p>
-                        <strong>Ngày:</strong>${new Date(booking.show.showDateTime).toLocaleDateString('en-US',{timeZone: 'Asia/Ho_Chi_Minh'})}<br/>
-                        <strong>Thời gian:</strong> ${new Date(booking.show.showDateTime).toLocaleTimeString('en-US',{timeZone: 'Asia/Ho_Chi_Minh'})}
+                        <strong>Ngày:</strong>${new Date(booking.show.showDateTime).toLocaleDateString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh'})}<br/>
+                        <strong>Thời gian:</strong> ${new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh'})}
                     </p>
                     <p>Cảm ơn đã đặt vé cho chương trình!<br/>-Movie-Ticket-Booking</p>
                 </div>`
@@ -121,4 +121,148 @@ const sendBookingConfirmationEmail = inngest.createFunction(
     }
 )
 
-export const functions = [syncUserCreation,syncUserDeletion,syncUserUpdation, releaseSeatAndDeleteBooking, sendBookingConfirmationEmail];
+//Inngest Functions để gửi lời nhắc
+
+const sendShowReminders = inngest.createFunction(
+    { id:'send-show-reminders'},
+    {cron: "0 */8 * * *"}, // chạy mỗi 8h
+    async ({step}) => {
+        const now = new Date();
+        const in8Hours = new Date(now.getTime() + 8 * 60 * 60 * 1000);// 8h sau
+
+        //chuẩn bị nhiệm vụ nhắc nhở
+        const remindersTasks = await step.run("perpare-reminder-tasks", async () => {
+            const shows = await Show.find({
+                showTime: {$gte: windowStart, $lt: in8Hours},
+            }).populate('movie');
+
+            const tasks = [];
+            
+            for(const show of shows){
+                if(!show.movie || !show.occupiedSeats) continue;
+
+                const userIds = [...new Set(Object.values(show.occupiedSeats))];
+                if(userIds.length === 0) continue;
+
+                const users = await User.find({_id: {$in: userIds}}).select('name email');
+
+                for(const user of users){
+                    tasks.push({
+                        userEmail: user.email,
+                        userName: user.name,
+                        movieTitle: show.movie.title,
+                        showTime: show.showTime,
+                    })
+                }
+            }
+            return tasks;
+        });
+
+        if(remindersTasks.length === 0){
+            return {sent: 0, message:"không có lời nhắc nào để gửi"}
+        }
+        
+        //gửi email nhắc nhở
+
+        const results = await step.run('send-all-reminders', async () => {
+            return await Promise.allSettled(
+                 remindersTasks.map(task => sendEmail({
+                     to: task.userEmail,
+                     subject:`Nhắc nhở: Phim "${task.movieTitle}" sắp bắt đầu chiếu!`,
+                     body: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h2>Xin chào ${task.userName},</h2>
+
+                        <p>Đây là email nhắc nhở nhanh rằng bộ phim của bạn:</p>
+
+                        <h3 style="color: #F84565;">${task.movieTitle}</h3>
+
+                        <p>
+                            được lên lịch chiếu vào ngày
+                            <strong>
+                            ${new Date(task.showTime).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                            </strong>
+                            lúc
+                            <strong>
+                            ${new Date(task.showTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                            </strong>.
+                        </p>
+
+                        <p>
+                            Phim sẽ bắt đầu trong khoảng <strong>8 tiếng nữa</strong>,
+                            hãy chắc chắn bạn đã sẵn sàng!
+                        </p>
+
+                        <br/>
+
+                        <p>Chúc bạn xem phim vui vẻ!<br/>Đội ngũ QuickShow</p>
+                        </div>
+                        `
+                 }))
+            )
+        })
+
+        const sent = results.filter(result => result.status === 'fulfilled').length;
+        const failed = results.length - sent;
+        return {
+            sent,
+            failed,
+            message: `Đã gửi ${sent} lời nhắc,${failed} gửi thất bại.`
+        };
+    }
+)
+
+//Hàm Inngest dùng để gửi thông báo khi có chương trình mới được thêm vào.
+
+const sendNewShowNotifications = inngest.createFunction(
+    {id: "send-new-show-notifications"},
+    {event: "app/show.added"},
+    async ({event}) => {
+        const {movieTitle} = event.data;
+
+        const users = await User.find({})
+
+        for(const user of users){
+            const userEmail = user.email;
+            const userName = user.name;
+
+            const subject = `🎬 Phim mới được thêm: ${movieTitle}`;
+            const body = `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h2>Xin chào ${userName},</h2>
+
+                        <p>Chúng tôi vừa thêm một bộ phim mới vào thư viện:</p>
+
+                        <h3 style="color: #F84565;">${movieTitle}</h3>
+
+                        <p>Hãy truy cập website của chúng tôi để xem chi tiết.</p>
+
+                        <br/>
+
+                        <p>
+                            Trân trọng,<br/>
+                            Đội ngũ QuickShow
+                        </p>
+                        </div>
+            `;
+
+            await sendEmail({
+                to: userEmail,
+                subject,
+                body
+            })
+        }
+
+        return {message: "Đã gửi thông báo."}
+    }
+)
+
+export const functions = [
+    syncUserCreation,
+    syncUserDeletion,
+    syncUserUpdation, 
+    releaseSeatAndDeleteBooking, 
+    sendBookingConfirmationEmail, 
+    sendShowReminders,
+    sendNewShowNotifications
+];
