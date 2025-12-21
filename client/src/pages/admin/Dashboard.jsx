@@ -3,7 +3,7 @@ import { dummyDashboardData } from '../../assets/assets';
 import Loading from '../../components/Loading';
 import BlurCircle from '../../components/BlurCircle';
 import { ChartLineIcon, CircleDollarSignIcon, PlayCircleIcon, StarIcon, UsersIcon } from 'lucide-react';
-import Title from './Title.jsx';
+import Title from '../../components/admin/Title';
 import {dateFormat} from '../../lib/dateFormat';
 import { useAppContext } from '../../context/AppContext.jsx';
 import toast from 'react-hot-toast';

@@ -30,6 +30,62 @@ const SeatLayout = () => {
       console.log(error)
     }
   }
+
+const TOTAL_SEATS_PER_ROW = 9;
+
+const parseSeat = (seatId) => ({
+  row: seatId[0],
+  num: parseInt(seatId.slice(1)),
+});
+
+const validateSeatRules = (selectedSeats) => {
+  const map = {};
+
+  // Gom ghế theo hàng
+  selectedSeats.forEach(seat => {
+    const { row, num } = parseSeat(seat);
+    if (!map[row]) map[row] = [];
+    map[row].push(num);
+  });
+
+  for (const row in map) {
+    const nums = map[row].sort((a, b) => a - b);
+
+    const min = nums[0];
+    const max = nums[nums.length - 1];
+
+    // ❌ Trống đúng 1 ghế bên trái
+    if (min > 1 && min - 1 === 1) {
+      return {
+        valid: false,
+        message: `Không được bỏ trống ghế ${row}${min - 1} bên trái`
+      };
+    }
+
+    // ❌ Trống đúng 1 ghế bên phải
+    if (max < TOTAL_SEATS_PER_ROW && TOTAL_SEATS_PER_ROW - max === 1) {
+      return {
+        valid: false,
+        message: `Không được bỏ trống ghế ${row}${max + 1} bên phải`
+      };
+    }
+
+    // ❌ Trống đúng 1 ghế ở giữa
+    for (let i = 0; i < nums.length - 1; i++) {
+      if (nums[i + 1] - nums[i] === 2) {
+        return {
+          valid: false,
+          message: `Không được bỏ trống ghế ${row}${nums[i] + 1} giữa ${row}${nums[i]} và ${row}${nums[i + 1]}`
+        };
+      }
+    }
+  }
+
+  return { valid: true };
+};
+
+
+
   const handleSeatClick = (seatId) => {
     if(!selectedTime){
       return toast("Vui lòng chọn thời gian trước")
@@ -78,6 +134,11 @@ const SeatLayout = () => {
       }
       if(!selectedTime || !selectedSeats.length){
         return toast.error("Vui lòng chọn thời gian và ghế ngồi")
+      }
+      // 🚨 CHECK RÀNG BUỘC GHẾ
+      const validation = validateSeatRules(selectedSeats);
+      if (!validation.valid) {
+        return toast.error(validation.message);
       }
       const {data} = await axios.post('/api/booking/create', {
         showId: selectedTime.showId,
