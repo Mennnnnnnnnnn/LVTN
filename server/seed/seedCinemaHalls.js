@@ -7,13 +7,13 @@ const cinemaHalls = [
         name: "Phòng 1 - Standard",
         hallNumber: 1,
         type: "Standard",
-        totalSeats: 90,
+        totalSeats: 88, // (8 dãy x 9 ghế) + (2 dãy đôi x 8 ghế) = 72 + 16 = 88
         seatLayout: {
             rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
             seatsPerRow: 9,
             coupleSeatsRows: ["H", "J"] // Dãy H và J là ghế đôi (bỏ I)
         },
-        customRowSeats: {},
+        customRowSeats: { "H": 8, "J": 8 }, // Dãy ghế đôi phải có số chẵn (4 cặp)
         priceMultiplier: 1,
         status: "active"
     },
@@ -21,13 +21,13 @@ const cinemaHalls = [
         name: "Phòng 2 - Standard",
         hallNumber: 2,
         type: "Standard",
-        totalSeats: 90,
+        totalSeats: 88, // (8 dãy x 9 ghế) + (2 dãy đôi x 8 ghế) = 72 + 16 = 88
         seatLayout: {
             rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
             seatsPerRow: 9,
             coupleSeatsRows: ["H", "J"] // Dãy H và J là ghế đôi (bỏ I)
         },
-        customRowSeats: {},
+        customRowSeats: { "H": 8, "J": 8 }, // Dãy ghế đôi phải có số chẵn (4 cặp)
         priceMultiplier: 1,
         status: "active"
     },
@@ -63,13 +63,13 @@ const cinemaHalls = [
         name: "Phòng 5 - Standard",
         hallNumber: 5,
         type: "Standard",
-        totalSeats: 90,
+        totalSeats: 88, // (8 dãy x 9 ghế) + (2 dãy đôi x 8 ghế) = 72 + 16 = 88
         seatLayout: {
             rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
             seatsPerRow: 9,
             coupleSeatsRows: ["H", "J"] // Dãy H và J là ghế đôi (bỏ I)
         },
-        customRowSeats: {},
+        customRowSeats: { "H": 8, "J": 8 }, // Dãy ghế đôi phải có số chẵn (4 cặp)
         priceMultiplier: 1,
         status: "active"
     }
