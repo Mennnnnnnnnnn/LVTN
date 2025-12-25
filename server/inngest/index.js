@@ -251,14 +251,24 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                         </div>
 
                         <!-- QR Code -->
-                        <div style="margin-bottom: 25px; text-align: center;">
-                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565;">
+                        <div style="margin-bottom: 25px;">
+                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565; text-align: center;">
                                 📱 MÃ QR CHECK-IN
                             </h2>
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; display: inline-block;">
-                                <img src="cid:qrcode" alt="QR Code" style="width: 250px; height: 250px; display: block;" />
-                            </div>
-                            <p style="margin: 15px 0 0 0; color: #666; font-size: 13px;">Vui lòng xuất trình mã QR này tại quầy khi đến rạp</p>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center">
+                                        <table cellpadding="0" cellspacing="0" border="0" style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                                            <tr>
+                                                <td>
+                                                    <img src="cid:qrcode" alt="QR Code" width="250" height="250" style="display: block; max-width: 250px; height: auto;" />
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 15px 0 0 0; color: #666; font-size: 13px; text-align: center;">Vui lòng xuất trình mã QR này tại quầy khi đến rạp</p>
                         </div>
 
                         <!-- Important Notes -->
