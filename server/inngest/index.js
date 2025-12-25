@@ -118,15 +118,19 @@ const sendBookingConfirmationEmail = inngest.createFunction(
             seats: booking.bookedSeats
         });
         
-        // Generate QR code as base64 image
-        const qrCodeImage = await QRCode.toDataURL(qrData, {
+        // Generate QR code as buffer, then convert to base64
+        const qrCodeBuffer = await QRCode.toBuffer(qrData, {
             width: 250,
             margin: 2,
+            type: 'png',
             color: {
                 dark: '#000000',
                 light: '#FFFFFF'
             }
         });
+        
+        // Convert buffer to base64 string (without data URI prefix)
+        const qrCodeBase64 = qrCodeBuffer.toString('base64');
 
         // Format date and time
         const showDate = new Date(booking.show.showDateTime).toLocaleDateString('vi-VN', {
@@ -150,10 +154,17 @@ const sendBookingConfirmationEmail = inngest.createFunction(
 
         const pricePerSeat = booking.amount / booking.bookedSeats.length;
 
-        // inngest gửi email
+        // inngest gửi email với QR code attachment
         await sendEmail({
             to: booking.user.email,
             subject: `🎬 Xác nhận đặt vé - ${booking.show.movie.title}`,
+            attachments: [
+                {
+                    name: 'qrcode.png',
+                    content: qrCodeBase64,
+                    contentId: 'qrcode'
+                }
+            ],
             body: `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px;">
                     <!-- Header -->
@@ -245,7 +256,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                                 📱 MÃ QR CHECK-IN
                             </h2>
                             <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; display: inline-block;">
-                                <img src="${qrCodeImage}" alt="QR Code" style="width: 250px; height: 250px; display: block;" />
+                                <img src="cid:qrcode" alt="QR Code" style="width: 250px; height: 250px; display: block;" />
                             </div>
                             <p style="margin: 15px 0 0 0; color: #666; font-size: 13px;">Vui lòng xuất trình mã QR này tại quầy khi đến rạp</p>
                         </div>

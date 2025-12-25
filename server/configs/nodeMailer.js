@@ -12,9 +12,9 @@ const apiClient = axios.create({
   },
 });
 
-const sendEmail = async ({ to, subject, body }) => {
+const sendEmail = async ({ to, subject, body, attachments = [] }) => {
   try {
-    const response = await apiClient.post('/smtp/email', {
+    const emailPayload = {
       sender: {
         email: process.env.SENDER_EMAIL,
       },
@@ -25,7 +25,14 @@ const sendEmail = async ({ to, subject, body }) => {
       ],
       subject,
       htmlContent: body,
-    });
+    };
+
+    // Add attachments if provided
+    if (attachments && attachments.length > 0) {
+      emailPayload.attachment = attachments;
+    }
+
+    const response = await apiClient.post('/smtp/email', emailPayload);
 
     return response.data;
   } catch (error) {
