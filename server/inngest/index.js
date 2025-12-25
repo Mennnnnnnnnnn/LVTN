@@ -161,8 +161,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
             attachments: [
                 {
                     name: 'qrcode.png',
-                    content: qrCodeBase64,
-                    contentId: 'qrcode'
+                    content: qrCodeBase64
                 }
             ],
             body: `
@@ -250,25 +249,20 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                             </table>
                         </div>
 
-                        <!-- QR Code -->
+                        <!-- QR Code Info -->
                         <div style="margin-bottom: 25px;">
                             <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565; text-align: center;">
                                 📱 MÃ QR CHECK-IN
                             </h2>
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td align="center">
-                                        <table cellpadding="0" cellspacing="0" border="0" style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
-                                            <tr>
-                                                <td>
-                                                    <img src="cid:qrcode" alt="QR Code" width="250" height="250" style="display: block; max-width: 250px; height: auto;" />
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <p style="margin: 15px 0 0 0; color: #666; font-size: 13px; text-align: center;">Vui lòng xuất trình mã QR này tại quầy khi đến rạp</p>
+                            <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; border-radius: 5px; text-align: center;">
+                                <p style="margin: 0 0 10px 0; color: #1976D2; font-size: 16px; font-weight: 600;">
+                                    📎 Mã QR đính kèm trong email
+                                </p>
+                                <p style="margin: 0; color: #555; font-size: 14px; line-height: 1.6;">
+                                    Vui lòng xem file đính kèm <strong>"qrcode.png"</strong> bên dưới<br/>
+                                    và xuất trình mã QR này tại quầy khi đến rạp
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Important Notes -->
