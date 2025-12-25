@@ -11,7 +11,6 @@ const AddShows = () => {
 
   const {axios, getToken, user, image_base_url} = useAppContext();
 
-  const currency = import.meta.env.VITE_CURRENCY
   const [nowPlayingMovies , setNowPlayingMovies] = useState([]) ;
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [dateTimeSelection , setDateTimeSelection] = useState({});
@@ -134,9 +133,9 @@ const AddShows = () => {
         </div>
       </div>
       <div className="mt-8">
-        <label className="block text-sm font-medium mb-2">Giá hiển thị</label>
+        <label className="block text-sm font-medium mb-2">Giá hiển thị (VND)</label>
         <div className="inline-flex items-center gap-2 border border-gray-600 px-3 py-2 rounded-md ">
-          <p className="text-gray-400 text-sm">{currency}</p>
+          <p className="text-gray-400 text-sm">₫</p>
           <input min={0} type="number" value={showPrice} onChange={(e) => setShowPrice(e.target.value)} placeholder="Nhập giá hiển thị" className="outline-none" />
         </div>
       </div>

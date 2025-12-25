@@ -4,6 +4,13 @@ import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import Show from "../models/Show.js";
 import sendEmail from "../configs/nodeMailer.js";
+import QRCode from 'qrcode';
+
+// Helper function to format VND
+const vndFormat = (amount) => {
+    return amount.toLocaleString('vi-VN') + ' ₫';
+};
+
 // Create a client to send and receive events
 export const inngest = new Inngest({ 
     id: "movie-ticket-booking", 
@@ -102,20 +109,174 @@ const sendBookingConfirmationEmail = inngest.createFunction(
             path: 'show',
             populate: {path: 'movie', model: 'Movie'}
         }).populate('user');
+        
+        // Tạo QR code chứa thông tin booking
+        const qrData = JSON.stringify({
+            bookingId: booking._id,
+            userId: booking.user._id,
+            showId: booking.show._id,
+            seats: booking.bookedSeats
+        });
+        
+        // Generate QR code as base64 image
+        const qrCodeImage = await QRCode.toDataURL(qrData, {
+            width: 250,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        // Format date and time
+        const showDate = new Date(booking.show.showDateTime).toLocaleDateString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        const showTime = new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Format seats as badges
+        const seatBadges = booking.bookedSeats.map(seat => 
+            `<span style="display: inline-block; background: #F84565; color: white; padding: 6px 12px; margin: 4px; border-radius: 6px; font-weight: 600; font-size: 13px;">${seat}</span>`
+        ).join('');
+
+        const pricePerSeat = booking.amount / booking.bookedSeats.length;
+
         // inngest gửi email
         await sendEmail({
-            to:booking.user.email,
-            subject: `Payment Confirmation: "${booking.show.movie.title}" booked!`,
-            body:`
-                <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                    <h2>Chào ${booking.user.name},</h2>
-                    <p>Đặt chỗ của bạn cho <strong style="color: #F84565;">${booking.show.movie.title}></strong> thanh cong!</p>
-                    <p>
-                        <strong>Ngày:</strong>${new Date(booking.show.showDateTime).toLocaleDateString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh'})}<br/>
-                        <strong>Thời gian:</strong> ${new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh'})}
-                    </p>
-                    <p>Cảm ơn đã đặt vé cho chương trình!<br/>-Movie-Ticket-Booking</p>
-                </div>`
+            to: booking.user.email,
+            subject: `🎬 Xác nhận đặt vé - ${booking.show.movie.title}`,
+            body: `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px;">
+                    <!-- Header -->
+                    <div style="background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #F84565; margin: 0; font-size: 28px; font-weight: 700;">🎬 QUICKSHOW</h1>
+                            <p style="color: #666; margin: 10px 0 0 0; font-size: 16px;">XÁC NHẬN ĐẶT VÉ THÀNH CÔNG</p>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                            <p style="margin: 0 0 10px 0; font-size: 15px; color: #666;">Xin chào <strong style="color: #333;">${booking.user.name}</strong>,</p>
+                            <p style="margin: 0; font-size: 15px; color: #666;">Đặt vé của bạn đã được xác nhận thành công! ✅</p>
+                        </div>
+
+                        <!-- Movie Info -->
+                        <div style="margin-bottom: 25px;">
+                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565;">
+                                📽️ THÔNG TIN PHIM
+                            </h2>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Tên phim:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${booking.show.movie.title}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Ngày chiếu:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${showDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Giờ chiếu:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${showTime}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Thời lượng:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${booking.show.movie.runtime} phút</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Booking Details -->
+                        <div style="margin-bottom: 25px;">
+                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565;">
+                                🎫 CHI TIẾT ĐẶT VÉ
+                            </h2>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Mã đặt vé:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right; font-family: monospace;">#${booking._id.toString().slice(-8).toUpperCase()}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Số lượng ghế:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${booking.bookedSeats.length} ghế</td>
+                                </tr>
+                            </table>
+                            <div style="margin-top: 15px;">
+                                <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Ghế đã chọn:</p>
+                                <div style="text-align: center;">
+                                    ${seatBadges}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Info -->
+                        <div style="margin-bottom: 25px;">
+                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565;">
+                                💰 THÔNG TIN THANH TOÁN
+                            </h2>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Giá vé:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${vndFormat(pricePerSeat)} × ${booking.bookedSeats.length}</td>
+                                </tr>
+                                <tr style="border-top: 2px solid #e9ecef;">
+                                    <td style="padding: 12px 0; color: #333; font-size: 16px; font-weight: 700;">Tổng cộng:</td>
+                                    <td style="padding: 12px 0; color: #F84565; font-weight: 700; font-size: 20px; text-align: right;">${vndFormat(booking.amount)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Trạng thái:</td>
+                                    <td style="padding: 8px 0; text-align: right;">
+                                        <span style="background: #28a745; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">✓ ĐÃ THANH TOÁN</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- QR Code -->
+                        <div style="margin-bottom: 25px; text-align: center;">
+                            <h2 style="color: #333; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #F84565;">
+                                📱 MÃ QR CHECK-IN
+                            </h2>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; display: inline-block;">
+                                <img src="${qrCodeImage}" alt="QR Code" style="width: 250px; height: 250px; display: block;" />
+                            </div>
+                            <p style="margin: 15px 0 0 0; color: #666; font-size: 13px;">Vui lòng xuất trình mã QR này tại quầy khi đến rạp</p>
+                        </div>
+
+                        <!-- Important Notes -->
+                        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <h3 style="color: #856404; margin: 0 0 10px 0; font-size: 15px; font-weight: 600;">⚠️ LƯU Ý QUAN TRỌNG</h3>
+                            <ul style="margin: 0; padding-left: 20px; color: #856404; font-size: 13px; line-height: 1.8;">
+                                <li>Vui lòng đến rạp trước <strong>15 phút</strong></li>
+                                <li>Mang theo email này hoặc mã QR</li>
+                                <li>Mã QR chỉ sử dụng được <strong>một lần</strong></li>
+                                <li>Không chia sẻ mã QR với người khác</li>
+                            </ul>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e9ecef;">
+                            <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</p>
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                Trân trọng,<br/>
+                                <strong style="color: #F84565;">Đội ngũ QuickShow</strong>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Outer Footer -->
+                    <div style="text-align: center; padding: 20px; color: white; font-size: 12px;">
+                        <p style="margin: 0;">© 2024 QuickShow. All rights reserved.</p>
+                    </div>
+                </div>
+            `
         })
 
     }

@@ -3,10 +3,10 @@ import { dummyShowsData } from '../../assets/assets';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import { dateFormat } from '../../lib/dateFormat';
+import { vndFormat } from '../../lib/currencyFormat';
 import { useAppContext } from '../../context/AppContext';
 
 const ListShows = () => {
-  const currency = import.meta.env.VITE_CURRENCY
 
   const {axios, getToken, user} = useAppContext();
 
@@ -49,7 +49,7 @@ const ListShows = () => {
                 <td className="p-2 min-w-45 pl-5">{show.movie.title}</td>
                 <td className="p-2">{dateFormat(show.showDateTime)}</td>
                 <td className="p-2">{Object.keys(show.occupiedSeats).length}</td>
-                <td className="p-2">{currency} {Object.keys(show.occupiedSeats).length * show.showPrice}</td>
+                <td className="p-2">{vndFormat(Object.keys(show.occupiedSeats).length * show.showPrice)}</td>
               </tr>
             ))}
           </tbody>

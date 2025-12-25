@@ -7,12 +7,14 @@ import timeFormat from '../lib/timeFormat';
 import DateSelect from '../components/DateSelect';
 import MovieCard from '../components/MovieCard';
 import Loading from '../components/Loading';
+import TrailerModal from '../components/TrailerModal';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
 const MovieDetails = () => {
   const navigate = useNavigate()
   const {id} = useParams()
   const [show, setShow] = useState(null)
+  const [showTrailer, setShowTrailer] = useState(false)
 
   const {shows, axios, getToken, user, fetchFavoriteMovies, favoriteMovies, image_base_url} = useAppContext();
   
@@ -44,16 +46,33 @@ const MovieDetails = () => {
       console.log(error)
     }
   }
+
+  const handleWatchTrailer = () => {
+    if(!show?.movie?.trailer_key){
+      toast.error("Trailer không khả dụng");
+      return;
+    }
+    setShowTrailer(true);
+  }
+
   useEffect (()=>{
     getShow()
   }, [id])
   return show ?  (
     <div className='px-6 md:px-16 lg:px-40 pt-30 md:pt-50'>
+      {/* Trailer Modal */}
+      {showTrailer && show.movie.trailer_key && (
+        <TrailerModal 
+          trailerKey={show.movie.trailer_key} 
+          onClose={() => setShowTrailer(false)} 
+        />
+      )}
+      
       <div className='flex flex-col md:flex-row gap-8 max-w-6xl mx-auto'>
         <img src={image_base_url + show.movie.poster_path} alt="" className='max-md:mx-auto rounded-xl h-104 max-w-70 object-cover' />
         <div className='relative flex flex-col gap-3'>
           <BlurCircle top="-100px" left="-100px" />
-          <p className='text-primary'>ENGLISH</p>
+          <p className='text-primary'>VIETNAM</p>
           <h1 className='text-4xl font-semibold max-w-96 text-balance'>{show.movie.title}</h1>
           <div className='flex items-center gap-2 text-gray-300'>
             <StarIcon className="w-5 h-5 text-primary fill-primary" />
@@ -65,7 +84,9 @@ const MovieDetails = () => {
               genre.name).join(", ")} • {show.movie.release_date.split("-")[0]}
           </p>
           <div className='flex items-center flex-wrap gap-4 mt-4'>
-            <button className='flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition
+            <button 
+              onClick={handleWatchTrailer}
+              className='flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition
              rounded-md font-medium  cursor-pointer active:scale-95'>
               <PlayCircleIcon className="w-5 h-5" />
               Xem trailer

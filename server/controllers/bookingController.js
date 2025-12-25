@@ -56,10 +56,10 @@ export const createBooking = async (req, res) => {
         //tạo mục hàng cho stripe
         const line_items = [
             {price_data: {
-                    currency: 'usd',
+                    currency: 'vnd',
                     product_data: {
                         name: showData.movie.title},
-                    unit_amount: Math.floor(booking.amount)*100,
+                    unit_amount: Math.floor(booking.amount),
                 },
                 quantity: 1,
             },

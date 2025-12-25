@@ -24,8 +24,8 @@ export const addShow = async (req, res) => {
         const {movieId, showsInput, showPrice} = req.body;
         let movie = await Movie.findById(movieId);
         if(!movie){
-            //Fetch movie details and credits from TMDB API
-            const [movieDetailsResponse, movieCreditsResponse] = await Promise.all([
+            //Fetch movie details, credits and videos from TMDB API
+            const [movieDetailsResponse, movieCreditsResponse, movieVideosResponse] = await Promise.all([
                 axios.get(`https://api.themoviedb.org/3/movie/${movieId}`,{
                     headers: {
                         Authorization: `Bearer ${process.env.TMDB_API_KEY}`
@@ -35,10 +35,21 @@ export const addShow = async (req, res) => {
                     headers: {
                         Authorization: `Bearer ${process.env.TMDB_API_KEY}`
                     }
+                }),
+                axios.get(`https://api.themoviedb.org/3/movie/${movieId}/videos`,{
+                    headers: {
+                        Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                    }
                 })
             ]);
             const movieApiData = movieDetailsResponse.data;
             const movieCreditsData = movieCreditsResponse.data;
+            const movieVideosData = movieVideosResponse.data;
+
+            // Find the first YouTube trailer
+            const trailer = movieVideosData.results.find(
+                video => video.type === 'Trailer' && video.site === 'YouTube'
+            );
 
             const movieDetails = {
                 _id: movieId,
@@ -53,6 +64,7 @@ export const addShow = async (req, res) => {
                 tagline: movieApiData.tagline||"",
                 vote_average: movieApiData.vote_average,
                 runtime: movieApiData.runtime,
+                trailer_key: trailer?.key || "",
             }
             // Add movie to database
             movie = await Movie.create(movieDetails);
@@ -112,14 +124,20 @@ export const getShows = async (req, res) => {
         const shows = await Show.find({movie: movieId, showDateTime: {$gte: new Date()}});
         const movie = await Movie.findById(movieId);
         const dateTime = {};
+        let showPrice = 0;
+        
         shows.forEach(show => {
             const dateKey = show.showDateTime.toISOString().split('T')[0];
             if(!dateTime[dateKey]){
                 dateTime[dateKey] = [];
             }
             dateTime[dateKey].push({time: show.showDateTime, showId: show._id});
+            // Lấy showPrice từ show đầu tiên (giả sử tất cả show của cùng 1 phim có cùng giá)
+            if(showPrice === 0) {
+                showPrice = show.showPrice;
+            }
         });
-        res.json({success: true, movie, dateTime});
+        res.json({success: true, movie, dateTime, showPrice});
     } catch (error) {
         console.error('Error fetching shows:', error);
         res.json({success: false, message: error.message});

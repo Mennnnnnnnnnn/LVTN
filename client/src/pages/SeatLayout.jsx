@@ -5,6 +5,7 @@ import Loading from '../components/Loading';
 import { ArrowRightIcon, ClockIcon } from 'lucide-react';
 import isoTimeFormat from '../lib/isoTimeFormat';
 import BlurCircle from '../components/BlurCircle';
+import { vndFormat } from '../lib/currencyFormat';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
 const SeatLayout = () => {
@@ -201,6 +202,54 @@ const validateSeatRules = (selectedSeats) => {
             ))}
           </div>
         </div>
+        
+        {/* Hiển thị tổng tiền */}
+        {selectedSeats.length > 0 && show.showPrice && (
+          <div className='mt-8 w-full max-w-md'>
+            <div className='bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary/30 rounded-xl p-6 shadow-lg'>
+              {/* Header */}
+              <div className='flex items-center justify-between mb-4 pb-4 border-b border-primary/20'>
+                <h3 className='text-lg font-semibold'>Chi tiết đặt vé</h3>
+                <span className='px-3 py-1 bg-primary/20 rounded-full text-sm font-medium'>
+                  {selectedSeats.length} ghế
+                </span>
+              </div>
+              
+              {/* Ghế đã chọn */}
+              <div className='mb-4'>
+                <p className='text-sm text-gray-400 mb-2'>Ghế đã chọn:</p>
+                <div className='flex flex-wrap gap-2'>
+                  {selectedSeats.map((seat, index) => (
+                    <span key={index} className='px-3 py-1.5 bg-primary text-white rounded-md text-sm font-medium'>
+                      {seat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Chi tiết giá */}
+              <div className='space-y-2 mb-4 py-3 border-y border-primary/20'>
+                <div className='flex justify-between text-sm'>
+                  <span className='text-gray-400'>Giá mỗi ghế:</span>
+                  <span className='font-medium'>{vndFormat(show.showPrice)}</span>
+                </div>
+                <div className='flex justify-between text-sm'>
+                  <span className='text-gray-400'>Số lượng:</span>
+                  <span className='font-medium'>{selectedSeats.length} ghế</span>
+                </div>
+              </div>
+              
+              {/* Tổng tiền */}
+              <div className='flex justify-between items-center'>
+                <span className='text-lg font-semibold'>Tổng cộng:</span>
+                <span className='text-3xl font-bold text-primary'>
+                  {vndFormat(show.showPrice * selectedSeats.length)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button onClick={bookTickets} className='flex items-center gap-1 mt-20 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer active:scale-95'>
           Thanh toán
           <ArrowRightIcon strokeWidth={3} className="w-4 h-4" />

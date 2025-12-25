@@ -6,13 +6,13 @@ import { ChartLineIcon, CircleDollarSignIcon, PlayCircleIcon, StarIcon, UsersIco
 import Title from '../../components/admin/Title';
 import {dateFormat} from '../../lib/dateFormat';
 import { useAppContext } from '../../context/AppContext.jsx';
+import { vndFormat } from '../../lib/currencyFormat';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
 
   const {axios, getToken, user, image_base_url} = useAppContext();
 
-  const currency = import.meta.env.VITE_CURRENCY
   const [dashboardData, setDashboardData] = useState({
     totalBookings: 0,
     totalRevenue: 0,
@@ -20,9 +20,11 @@ const Dashboard = () => {
     totalUser: 0
   });
   const[loading, setLoading] = useState(true);
+  const[updatingTrailers, setUpdatingTrailers] = useState(false);
+  
   const dashboardCards = [
     {title: "Tổng số lượng đặt chỗ" , value: dashboardData.totalBookings || "0", icon : ChartLineIcon},
-    {title: "Tổng doanh thu" , value: currency + dashboardData.totalRevenue || "0", icon : CircleDollarSignIcon},
+    {title: "Tổng doanh thu" , value: vndFormat(dashboardData.totalRevenue || 0), icon : CircleDollarSignIcon},
     {title: "Chương trình đang hoạt động" , value: dashboardData.activeShows.length || "0", icon : PlayCircleIcon},
     {title: "Tổng số người dùng" , value: dashboardData.totalUser || "0", icon : UsersIcon},
   ]
@@ -43,6 +45,28 @@ const Dashboard = () => {
       toast.error("Lỗi khi tải dữ liệu bảng điều khiển",error);
     }
   };
+
+  const handleUpdateTrailers = async() => {
+    try {
+      setUpdatingTrailers(true);
+      const {data} = await axios.post('/api/admin/update-trailers', {}, {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`
+        }
+      });
+      if(data.success){
+        toast.success(`Đã cập nhật ${data.updatedCount} phim với trailer!`);
+      }else{
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error("Lỗi khi cập nhật trailers");
+      console.error(error);
+    } finally {
+      setUpdatingTrailers(false);
+    }
+  };
+
   useEffect (()=> {
     if(user){
       fetchDashboardData();
@@ -50,7 +74,24 @@ const Dashboard = () => {
   },[user]);
   return !loading ? (
     <>
-      <Title text1="Quản trị viên" text2="Trang tổng quan" />
+      <Title text2="Trang tổng quan" />
+      
+      {/* Update Trailers Button */}
+      <div className="mt-4">
+        <button
+          onClick={handleUpdateTrailers}
+          disabled={updatingTrailers}
+          className={`px-6 py-2.5 bg-primary hover:bg-primary-dull transition rounded-md font-medium text-sm ${
+            updatingTrailers ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'
+          }`}
+        >
+          {updatingTrailers ? 'Đang cập nhật trailers...' : 'Cập nhật Trailers cho tất cả phim'}
+        </button>
+        <p className="text-xs text-gray-400 mt-2">
+          * Sử dụng nút này để cập nhật trailer cho các phim hiện có trong database
+        </p>
+      </div>
+
       <div className="relative flex flex-wrap gap-4 mt-6">
         <BlurCircle top="-100px" left="0px" />
         <div className="flex flex-wrap gap-4 w-full">
@@ -73,7 +114,7 @@ const Dashboard = () => {
             <img src={image_base_url + show.movie.poster_path} alt='' className="h-60 w-full object-cover" />
             <p className="font-medium p-2 truncate">{show.movie.title}</p>
             <div className="flex items-center justify-between px-2">
-              <p className="text-lg font-medium">{currency} {show.showPrice}</p>
+              <p className="text-lg font-medium">{vndFormat(show.showPrice)}</p>
               <p className="flex items-center gap-1 text-sm text-gray-400 mt-1 pr-1">
                 <StarIcon className="w-4 h-4 text-primary fill-primary" />
                 {show.movie.vote_average.toFixed(1)}
