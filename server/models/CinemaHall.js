@@ -1,0 +1,26 @@
+import mongoose from "mongoose";
+
+const cinemaHallSchema = new mongoose.Schema(
+    {
+        name: { type: String, required: true },
+        hallNumber: { type: Number, required: true, unique: true },
+        type: { type: String, required: true }, // Standard, VIP, IMAX
+        totalSeats: { type: Number, required: true },
+        seatLayout: {
+            rows: { type: [String], required: true }, // ["A", "B", "C", ...]
+            seatsPerRow: { type: Number, required: true },
+            coupleSeatsRows: { type: [String], default: [] } // Dãy có ghế đôi: ["L"]
+        },
+        customRowSeats: { type: Object, default: {} }, // Số ghế tùy chỉnh theo dãy: { "L": 6 }
+        priceMultiplier: { type: Number, default: 1 }, // VIP: 1.5, IMAX: 2
+        status: { type: String, default: 'active' } // active, maintenance
+    },
+    {
+        timestamps: true,
+    }
+);
+
+const CinemaHall = mongoose.model("CinemaHall", cinemaHallSchema);
+
+export default CinemaHall;
+

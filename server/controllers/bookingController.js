@@ -35,12 +35,43 @@ export const createBooking = async (req, res) => {
             return res.json({success: false, message: 'One or more selected seats are already booked. Please choose different seats.'});
         }
         // Get the show details
-        const showData = await Show.findById(showId).populate('movie');
+        const showData = await Show.findById(showId).populate('movie').populate('hall');
+        
+        // Constants phụ thu
+        const COUPLE_SEAT_SURCHARGE = 10000;
+        const EVENING_SURCHARGE = 10000;
+        
+        // Tính giá base với priceMultiplier
+        const basePrice = showData.showPrice * showData.hall.priceMultiplier;
+        
+        // Check suất tối (sau 17h)
+        const showHour = showData.showDateTime.getHours();
+        const isEveningShow = showHour >= 17;
+        
+        // Tính tổng tiền cho từng ghế
+        let totalAmount = 0;
+        selectedSeats.forEach(seat => {
+            let seatPrice = basePrice;
+            
+            // Phụ thu ghế đôi
+            const row = seat[0];
+            if(showData.hall.seatLayout?.coupleSeatsRows?.includes(row)) {
+                seatPrice += COUPLE_SEAT_SURCHARGE;
+            }
+            
+            // Phụ thu suất tối
+            if(isEveningShow) {
+                seatPrice += EVENING_SURCHARGE;
+            }
+            
+            totalAmount += seatPrice;
+        });
+        
         //create a new booking
         const booking = await Booking.create({
             user: userId,
             show: showId,
-            amount: showData.showPrice * selectedSeats.length,
+            amount: totalAmount,
             bookedSeats: selectedSeats
         });
 

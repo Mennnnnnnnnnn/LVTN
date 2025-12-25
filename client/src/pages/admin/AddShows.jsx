@@ -12,7 +12,9 @@ const AddShows = () => {
   const {axios, getToken, user, image_base_url} = useAppContext();
 
   const [nowPlayingMovies , setNowPlayingMovies] = useState([]) ;
+  const [cinemaHalls, setCinemaHalls] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedHall, setSelectedHall] = useState(null);
   const [dateTimeSelection , setDateTimeSelection] = useState({});
   const [dateTimeInput, setDateTimeInput] = useState ("");
   const [showPrice , setShowPrice] = useState("");
@@ -20,7 +22,6 @@ const AddShows = () => {
   const [addingShow, setAddingShow] = useState(false);
 
   const fetchNowPlayingMovies = async() =>{
-    // Simulating an API call with dummy data
     try {
       const {data} = await axios.get('/api/show/now-playing',{
         headers: {
@@ -33,7 +34,17 @@ const AddShows = () => {
     } catch (error) {
       console.error('Error fetching movies:',error)
     }
+  };
 
+  const fetchCinemaHalls = async() => {
+    try {
+      const {data} = await axios.get('/api/hall/all');
+      if(data.success){
+        setCinemaHalls(data.halls);
+      }
+    } catch (error) {
+      console.error('Error fetching cinema halls:',error)
+    }
   };
    const handleDateTimeAdd = () => {
     if(!dateTimeInput) return;
@@ -63,16 +74,20 @@ const AddShows = () => {
 
    const handleSubmit = async () => {
     try {
-      setAddingShow (true);
-
-      if(!selectedMovie || Object.keys(dateTimeSelection).length === 0 || !showPrice){
-        return toast('Thiếu các trường bắt buộc');
+      // Validate trước khi set loading
+      if(!selectedMovie || !selectedHall || Object.keys(dateTimeSelection).length === 0 || !showPrice){
+        toast.error('Vui lòng điền đầy đủ thông tin (phim, phòng chiếu, lịch chiếu, giá vé)');
+        return;
       }
+      
+      setAddingShow (true);
+      
       const showsInput = Object.entries(dateTimeSelection).map(([date, time]) => ({
         date,
         time,}));
       const payload = {
         movieId: selectedMovie,
+        hallId: selectedHall,
         showsInput,
         showPrice: Number(showPrice),
       }
@@ -82,22 +97,28 @@ const AddShows = () => {
         }
       });
       if(data.success){
-        toast.success('Chương trình được thêm thành công');
+        toast.success(data.message || 'Chương trình được thêm thành công');
         setSelectedMovie (null);
+        setSelectedHall (null);
         setDateTimeSelection({});
         setShowPrice("");
       }else{
         toast.error (data.message);
+        if(data.conflicts){
+          console.log('Conflicts:', data.conflicts);
+        }
       }
     } catch (error) {
       console.error("Lỗi khi thêm chương trình",error);
       toast.error ('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
+      setAddingShow (false);
     }
-    setAddingShow (false);
    }
   useEffect(()=> {
     if(user){
       fetchNowPlayingMovies();
+      fetchCinemaHalls();
     }
   },[user]);
 
@@ -132,6 +153,39 @@ const AddShows = () => {
           ))}
         </div>
       </div>
+
+      {/* Cinema Hall Selection */}
+      <div className="mt-8">
+        <p className="text-lg font-medium mb-4">Chọn phòng chiếu</p>
+        <div className="flex flex-wrap gap-4">
+          {cinemaHalls.map((hall) => (
+            <div 
+              key={hall._id} 
+              onClick={() => setSelectedHall(hall._id)}
+              className={`relative cursor-pointer px-6 py-4 rounded-lg border-2 transition-all ${
+                selectedHall === hall._id 
+                  ? 'border-primary bg-primary/10' 
+                  : 'border-gray-600 hover:border-primary/50'
+              }`}
+            >
+              {selectedHall === hall._id && (
+                <div className="absolute top-2 right-2 bg-primary h-5 w-5 rounded-full flex items-center justify-center">
+                  <CheckIcon className="w-3 h-3 text-white" strokeWidth={3}/>
+                </div>
+              )}
+              <h3 className="font-semibold text-base">{hall.name}</h3>
+              <p className="text-sm text-gray-400 mt-1">{hall.type}</p>
+              <p className="text-sm text-gray-400">{hall.totalSeats} ghế</p>
+              {hall.priceMultiplier > 1 && (
+                <span className="inline-block mt-2 px-2 py-1 bg-primary/20 text-primary text-xs rounded">
+                  x{hall.priceMultiplier} giá
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-8">
         <label className="block text-sm font-medium mb-2">Giá hiển thị (VND)</label>
         <div className="inline-flex items-center gap-2 border border-gray-600 px-3 py-2 rounded-md ">

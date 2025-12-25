@@ -10,29 +10,50 @@ import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
 const SeatLayout = () => {
 
-  const groupRows = [["A" , "B"], ["C", "D"], ["E", "F"], ["G", "H"], ["I", "J"]]
   const {id, date} = useParams()
   const [selectedSeats, setSelectedSeats] = useState([])
   const [selectedTime, setSelectedTime] = useState(null)
   const [show, setShow] = useState(null)
+  const [hall, setHall] = useState(null)
+  const [currentShowPrice, setCurrentShowPrice] = useState(0) // Giá của show được chọn
+  const [isEveningShow, setIsEveningShow] = useState(false) // Suất tối
   
   const [occupiedSeats, setOccupiedSeats] = useState([])
+  
+  // Constants phụ thu
+  const COUPLE_SEAT_SURCHARGE = 10000; // Phụ thu ghế đôi mỗi ghế
+  const EVENING_SURCHARGE = 10000; // Phụ thu suất tối mỗi ghế
 
   const navigate = useNavigate()
 
   const { axios, getToken, user} = useAppContext();
+  
+  // Dynamic group rows based on hall layout
+  const groupRows = hall ? 
+    (hall.seatLayout.rows.length <= 2 ? 
+      [hall.seatLayout.rows] : 
+      hall.seatLayout.rows.reduce((acc, row, index) => {
+        const groupIndex = Math.floor(index / 2);
+        if (!acc[groupIndex]) acc[groupIndex] = [];
+        acc[groupIndex].push(row);
+        return acc;
+      }, [])
+    ) : [];
+
+  const TOTAL_SEATS_PER_ROW = hall ? hall.seatLayout.seatsPerRow : 9;
   const getShow = async () =>{
     try {
       const {data} = await axios.get(`/api/show/${id}`);
       if(data.success){
         setShow(data);
+        if(data.hall) {
+          setHall(data.hall);
+        }
       }
     } catch (error) {
       console.log(error)
     }
   }
-
-const TOTAL_SEATS_PER_ROW = 9;
 
 const parseSeat = (seatId) => ({
   row: seatId[0],
@@ -91,30 +112,94 @@ const validateSeatRules = (selectedSeats) => {
     if(!selectedTime){
       return toast("Vui lòng chọn thời gian trước")
     }
-    if(!selectedSeats.includes(seatId) && selectedSeats.length > 4) {
-        return toast("Bạn có thể chọn 5 ghế ngồi")
+    
+    const row = seatId[0];
+    const seatNum = parseInt(seatId.slice(1));
+    
+    // Kiểm tra xem dãy này có phải là ghế đôi không
+    const isCoupleSeat = hall?.seatLayout?.coupleSeatsRows?.includes(row);
+    
+    if(isCoupleSeat) {
+      // Ghế đôi: chọn/bỏ chọn cặp ghế (số lẻ-chẵn)
+      const isOddSeat = seatNum % 2 === 1;
+      const coupleSeat = isOddSeat ? `${row}${seatNum + 1}` : `${row}${seatNum - 1}`;
+      
+      // Kiểm tra cả 2 ghế đã được đặt chưa
+      if(occupiedSeats.includes(seatId) || occupiedSeats.includes(coupleSeat)){
+        return toast("Ghế đôi đã được đặt trước đó")
+      }
+      
+      // Kiểm tra giới hạn 5 ghế (tính cả ghế đôi = 2 ghế)
+      if(!selectedSeats.includes(seatId) && selectedSeats.length > 3) {
+        return toast("Bạn có thể chọn tối đa 5 ghế ngồi")
+      }
+      
+      // Toggle cả 2 ghế
+      if(selectedSeats.includes(seatId)) {
+        setSelectedSeats(prev => prev.filter(seat => seat !== seatId && seat !== coupleSeat))
+      } else {
+        setSelectedSeats(prev => [...prev, seatId, coupleSeat])
+      }
+    } else {
+      // Ghế thường: chọn/bỏ chọn từng ghế
+      if(!selectedSeats.includes(seatId) && selectedSeats.length > 4) {
+        return toast("Bạn có thể chọn tối đa 5 ghế ngồi")
+      }
+      if(occupiedSeats.includes(seatId)){
+        return toast("Ghế đã được đặt trước đó")
+      }
+      setSelectedSeats(prev => prev.includes(seatId) ? prev.filter(seat => seat !== seatId) : [...prev , seatId] )
     }
-    if(occupiedSeats.includes(seatId)){
-      return toast("Ghế đã được đặt trước đó")
-    }
-    setSelectedSeats(prev => prev.includes(seatId) ? prev.filter(seat => seat !== seatId) : [...prev , seatId] )
   }
-  const renderSeats = (row, count = 9 )=> (
-    <div key={row} className="flex gap-2 mt-2">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {Array.from({length: count}, (_,i)=>{
-          const seatId = `${row}${i+1}`;
-          return (
-            <button key={seatId} onClick={()=> handleSeatClick(seatId)}
-             className={`h-8 w-8 rounded border border-primary/60 cursor-pointer ${selectedSeats.includes(seatId) && "bg-primary text-white"}
-             ${occupiedSeats.includes(seatId) && "opacity-50"}`}>
-              {seatId}
-            </button>
-          );
-        })}
+  const renderSeats = (row)=> {
+    // Kiểm tra số ghế tùy chỉnh cho dãy này
+    const customSeats = hall?.customRowSeats?.[row];
+    const count = customSeats || TOTAL_SEATS_PER_ROW;
+    
+    // Kiểm tra dãy này có phải ghế đôi không
+    const isCoupleSeat = hall?.seatLayout?.coupleSeatsRows?.includes(row);
+    
+    // Tính toán padding để căn giữa (cho dãy có ít ghế hơn)
+    const needsPadding = count < TOTAL_SEATS_PER_ROW;
+    const paddingSeats = needsPadding ? Math.floor((TOTAL_SEATS_PER_ROW - count) / 2) : 0;
+    
+    return (
+      <div key={row} className="flex gap-2 mt-2 justify-center">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {/* Padding ghế trống bên trái */}
+          {needsPadding && Array.from({length: paddingSeats}, (_, i) => (
+            <div key={`pad-left-${i}`} className="h-8 w-8"></div>
+          ))}
+          
+          {/* Ghế thực tế */}
+          {Array.from({length: count}, (_,i)=>{
+            const seatId = `${row}${i+1}`;
+            const isSelected = selectedSeats.includes(seatId);
+            const isOccupied = occupiedSeats.includes(seatId);
+            
+            // Nếu là ghế đôi, thêm style đặc biệt
+            const coupleClass = isCoupleSeat ? 'border-2 border-pink-500' : 'border border-primary/60';
+            
+            return (
+              <button key={seatId} onClick={()=> handleSeatClick(seatId)}
+               className={`h-8 w-8 rounded ${coupleClass} cursor-pointer transition-all
+               ${isSelected && "bg-primary text-white scale-110"}
+               ${isOccupied && "opacity-30 cursor-not-allowed bg-gray-600"}
+               ${!isSelected && !isOccupied && "hover:bg-primary/30"}`}
+               disabled={isOccupied}>
+                {seatId}
+              </button>
+            );
+          })}
+          
+          {/* Padding ghế trống bên phải */}
+          {needsPadding && Array.from({length: paddingSeats}, (_, i) => (
+            <div key={`pad-right-${i}`} className="h-8 w-8"></div>
+          ))}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const getOccupiedSeats = async () => {
     try {
@@ -128,6 +213,42 @@ const validateSeatRules = (selectedSeats) => {
       console.log(error)
     }
   }
+  
+  // Cập nhật hall khi chọn thời gian mới
+  useEffect(() => {
+    if(selectedTime?.hall) {
+      setHall(selectedTime.hall);
+      setCurrentShowPrice(selectedTime.showPrice || show?.showPrice || 0);
+      setIsEveningShow(selectedTime.isEveningShow || false);
+    }
+  }, [selectedTime]);
+  
+  // Tính giá cuối cho mỗi ghế với phụ thu
+  const calculateFinalPrice = (seatId) => {
+    if(!hall || !currentShowPrice) return 0;
+    
+    let price = currentShowPrice;
+    
+    // Phụ thu ghế đôi
+    const row = seatId[0];
+    if(hall.seatLayout?.coupleSeatsRows?.includes(row)) {
+      price += COUPLE_SEAT_SURCHARGE;
+    }
+    
+    // Phụ thu suất tối
+    if(isEveningShow) {
+      price += EVENING_SURCHARGE;
+    }
+    
+    return price;
+  };
+  
+  // Tính tổng tiền cho tất cả ghế đã chọn
+  const calculateTotalAmount = () => {
+    return selectedSeats.reduce((total, seatId) => {
+      return total + calculateFinalPrice(seatId);
+    }, 0);
+  };
   const bookTickets = async () => {
     try {
       if(!user){
@@ -167,17 +288,31 @@ const validateSeatRules = (selectedSeats) => {
     }
   },[selectedTime])
 
-  return show ? (
+  return show && hall ? (
     <div className='flex flex-col md:flex-row px-6 md:px-16 lg:px-40 py-30 md:pt-50'>
       {/* thoi gian co san */}
       <div className='w-60 bg-primary/10 border border-primary/20 rounded-lg py-10 h-max md:sticky md:top-30'>
       <p className='flex-lg font-semibold px-6'>Thời gian có sẵn</p>
       <div className='mt-5 space-y-1'>
         {show.dateTime[date].map((item)=>(
-          <div key={item.time} onClick={()=> setSelectedTime(item)} className={`flex items-center gap-2 px-6 py-2 w-max rounded-r-md cursor-pointer transition ${selectedTime?.time === item.time ?
+          <div key={item.showId} onClick={()=> setSelectedTime(item)} className={`flex flex-col gap-1 px-6 py-2 rounded-r-md cursor-pointer transition ${selectedTime?.showId === item.showId ?
           "bg-primary text-white" : "hover:bg-primary/20" }`}>
-            <ClockIcon className='w-4 h-4' />
-            <p className='text-sm'>{ isoTimeFormat(item.time)}</p>
+            <div className='flex items-center gap-2'>
+              <ClockIcon className='w-4 h-4' />
+              <p className='text-sm font-medium'>{ isoTimeFormat(item.time)}</p>
+            </div>
+            {item.hall && (
+              <div className='flex items-center gap-2 ml-6'>
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                  item.hall.type === 'IMAX' ? 'bg-yellow-500/20 text-yellow-400' :
+                  item.hall.type === 'VIP' ? 'bg-purple-500/20 text-purple-400' :
+                  'bg-gray-500/20 text-gray-400'
+                }`}>
+                  {item.hall.type}
+                </span>
+                <span className='text-xs text-gray-400'>{item.hall.name}</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -189,7 +324,28 @@ const validateSeatRules = (selectedSeats) => {
         <BlurCircle bottom="0px" right="0px" />
         <h1 className='text-2xl font-semibold mb-4'>Chọn chỗ ngồi của bạn</h1>
         <img src={assets.screenImage} alt="screen" />
-        <p className='text-gray-400 text-sm mb-6'>Man Hinh</p>
+        <p className='text-gray-400 text-sm mb-6'>Màn Hình</p>
+        
+        {/* Chú giải */}
+        <div className='flex flex-wrap items-center gap-4 mb-6 text-sm'>
+          <div className='flex items-center gap-2'>
+            <div className='h-6 w-6 rounded border border-primary/60 bg-transparent'></div>
+            <span>Ghế trống</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className='h-6 w-6 rounded border-2 border-pink-500 bg-transparent'></div>
+            <span>Ghế đôi</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className='h-6 w-6 rounded bg-primary'></div>
+            <span>Đã chọn</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className='h-6 w-6 rounded bg-gray-600 opacity-30'></div>
+            <span>Đã đặt</span>
+          </div>
+        </div>
+        
         <div className='flex flex-col items-center mt-10 text-xs text-gray-300'>
           <div className='grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6'>
             {groupRows[0].map(row => renderSeats(row))}
@@ -204,7 +360,7 @@ const validateSeatRules = (selectedSeats) => {
         </div>
         
         {/* Hiển thị tổng tiền */}
-        {selectedSeats.length > 0 && show.showPrice && (
+        {selectedSeats.length > 0 && currentShowPrice > 0 && (
           <div className='mt-8 w-full max-w-md'>
             <div className='bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary/30 rounded-xl p-6 shadow-lg'>
               {/* Header */}
@@ -219,21 +375,43 @@ const validateSeatRules = (selectedSeats) => {
               <div className='mb-4'>
                 <p className='text-sm text-gray-400 mb-2'>Ghế đã chọn:</p>
                 <div className='flex flex-wrap gap-2'>
-                  {selectedSeats.map((seat, index) => (
-                    <span key={index} className='px-3 py-1.5 bg-primary text-white rounded-md text-sm font-medium'>
-                      {seat}
-                    </span>
-                  ))}
+                  {selectedSeats.map((seat, index) => {
+                    const row = seat[0];
+                    const isCouple = hall?.seatLayout?.coupleSeatsRows?.includes(row);
+                    return (
+                      <span key={index} className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                        isCouple ? 'bg-pink-500 text-white' : 'bg-primary text-white'
+                      }`}>
+                        {seat} {isCouple && '💑'}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               
               {/* Chi tiết giá */}
               <div className='space-y-2 mb-4 py-3 border-y border-primary/20'>
                 <div className='flex justify-between text-sm'>
-                  <span className='text-gray-400'>Giá mỗi ghế:</span>
-                  <span className='font-medium'>{vndFormat(show.showPrice)}</span>
+                  <span className='text-gray-400'>Giá cơ bản:</span>
+                  <span className='font-medium'>{vndFormat(currentShowPrice)}</span>
                 </div>
-                <div className='flex justify-between text-sm'>
+                {selectedSeats.some(seat => hall?.seatLayout?.coupleSeatsRows?.includes(seat[0])) && (
+                  <div className='flex justify-between text-sm'>
+                    <span className='text-gray-400'>Phụ thu ghế đôi:</span>
+                    <span className='font-medium text-pink-400'>
+                      +{vndFormat(COUPLE_SEAT_SURCHARGE * selectedSeats.filter(seat => hall?.seatLayout?.coupleSeatsRows?.includes(seat[0])).length)}
+                    </span>
+                  </div>
+                )}
+                {isEveningShow && (
+                  <div className='flex justify-between text-sm'>
+                    <span className='text-gray-400'>Phụ thu suất tối:</span>
+                    <span className='font-medium text-yellow-400'>
+                      +{vndFormat(EVENING_SURCHARGE * selectedSeats.length)}
+                    </span>
+                  </div>
+                )}
+                <div className='flex justify-between text-sm pt-2 border-t border-primary/10'>
                   <span className='text-gray-400'>Số lượng:</span>
                   <span className='font-medium'>{selectedSeats.length} ghế</span>
                 </div>
@@ -243,7 +421,7 @@ const validateSeatRules = (selectedSeats) => {
               <div className='flex justify-between items-center'>
                 <span className='text-lg font-semibold'>Tổng cộng:</span>
                 <span className='text-3xl font-bold text-primary'>
-                  {vndFormat(show.showPrice * selectedSeats.length)}
+                  {vndFormat(calculateTotalAmount())}
                 </span>
               </div>
             </div>

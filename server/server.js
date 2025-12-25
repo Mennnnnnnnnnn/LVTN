@@ -9,6 +9,7 @@ import showRouter from './routes/showRoutes.js';
 import bookingRouter from './routes/bookingRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import userRouter from './routes/userRoutes.js';
+import hallRouter from './routes/cinemaHallRoutes.js';
 import { stripeWebhooks } from './controllers/stripeWebhooks.js';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/show', showRouter);
 app.use('/api/booking', bookingRouter);
 app.use('/api/admin',adminRouter);
 app.use('/api/user',userRouter);
+app.use('/api/hall',hallRouter);
 
 app.listen(port, () => 
   console.log(`Server running on port ${port}`));

@@ -72,7 +72,7 @@ const MovieDetails = () => {
         <img src={image_base_url + show.movie.poster_path} alt="" className='max-md:mx-auto rounded-xl h-104 max-w-70 object-cover' />
         <div className='relative flex flex-col gap-3'>
           <BlurCircle top="-100px" left="-100px" />
-          <p className='text-primary'>VIETNAM</p>
+          <p className='text-primary'>VIETNAMESE SUBTITLE</p>
           <h1 className='text-4xl font-semibold max-w-96 text-balance'>{show.movie.title}</h1>
           <div className='flex items-center gap-2 text-gray-300'>
             <StarIcon className="w-5 h-5 text-primary fill-primary" />
@@ -82,6 +82,9 @@ const MovieDetails = () => {
           <p>
             {timeFormat(show.movie.runtime)} • {show.movie.genres.map(genre => 
               genre.name).join(", ")} • {show.movie.release_date.split("-")[0]}
+          </p>
+          <p className='text-gray-400 text-sm'>
+            <span className='text-gray-300 font-medium'>Ngày khởi chiếu:</span> {new Date(show.movie.release_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </p>
           <div className='flex items-center flex-wrap gap-4 mt-4'>
             <button 
@@ -99,7 +102,7 @@ const MovieDetails = () => {
         </div>
       </div>
       
-      <p className='text-lg font-medium mt-20'>Dan dien vien</p>
+      <p className='text-lg font-medium mt-20'>Dàn diễn viên</p>
       <div className='overflow-x-auto no-scollbar mt-8 pb-4'>
         <div className='flex items-center gap-4 w-max px-4'>
             {show.movie.casts.slice(0,12).map((cast, index)=>(

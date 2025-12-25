@@ -14,7 +14,11 @@ export const isAdmin = async (req, res) => {
 export const getDashboardData = async (req, res) => {
     try {
         const bookings = await Booking.find({ispaid: true});
-        const activeShows = await Show.find({showDateTime: {$gte: new Date()}}).populate('movie');
+        // Only get shows with hall (exclude legacy data)
+        const activeShows = await Show.find({
+            showDateTime: {$gte: new Date()},
+            hall: {$exists: true}
+        }).populate('movie');
         const totalUser = await User.countDocuments();
         const dashboardData = {
             totalBookings: bookings.length,
@@ -33,7 +37,11 @@ export const getDashboardData = async (req, res) => {
 
 export const getAllShows = async (req, res) => {
     try {
-        const shows = await Show.find({showDateTime: {$gte: new Date()}}).populate('movie').sort({showDateTime: 1});
+        // Only get shows with hall (exclude legacy data)
+        const shows = await Show.find({
+            showDateTime: {$gte: new Date()},
+            hall: {$exists: true}
+        }).populate('movie').populate('hall').sort({showDateTime: 1});
         res.json({success: true, shows});
     } catch (error) {
         console.log(error.message);
@@ -66,7 +74,7 @@ export const updateMoviesWithTrailers = async (req, res) => {
         for (const movie of movies) {
             try {
                 // Fetch trailer data from TMDB
-                const {data} = await axios.get(`https://api.themoviedb.org/3/movie/${movie._id}/videos`, {
+                const {data} = await axios.get(`https://api.themoviedb.org/3/movie/${movie._id}/videos`, { // Không thêm language cho videos
                     headers: {
                         Authorization: `Bearer ${process.env.TMDB_API_KEY}`
                     }

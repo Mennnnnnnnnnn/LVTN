@@ -45,6 +45,7 @@ const ListBookings = () => {
               <th className="p-2 font-medium">Thời gian phim</th>
               <th className="p-2 font-medium">Chỗ ngồi</th>
               <th className="p-2 font-medium">Số lượng</th>
+              <th className="p-2 font-medium">Tổng tiền</th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
@@ -54,6 +55,7 @@ const ListBookings = () => {
                           <td className="p-2">{item.show.movie.title}</td>
                           <td className="p-2">{dateFormat(item.show.showDateTime)}</td>
                           <td className="p-2">{Object.keys(item.bookedSeats).map(seat => item.bookedSeats[seat]).join(", ")}</td>
+                          <td className="p-2">{Object.keys(item.bookedSeats).length} vé</td>
                           <td className="p-2">{vndFormat(item.amount)}</td>
                         </tr>
                       ))}

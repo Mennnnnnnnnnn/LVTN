@@ -19,7 +19,7 @@ const DateSelect = ({dateTime, id}) => {
         <BlurCircle top="-100px" left="-100px" />
         <BlurCircle top="100px" right="0px" />
         <div>
-            <p className='text-lg font-semibold'>Chon ngay</p>
+            <p className='text-lg font-semibold'>Chọn ngày</p>
             <div className='flex items-center gap-6 text-sm mt-5'>
                 <ChevronLeftIcon width={28} />
                     <span className='grid grid-cols-3 md:flex flex=wrap md:max-w-lg gap-4'>
@@ -35,7 +35,7 @@ const DateSelect = ({dateTime, id}) => {
                 <ChevronRightIcon width={28} />
             </div>
         </div>
-        <button onClick={onBookHanler} className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'>Dat ngay</button>
+        <button onClick={onBookHanler} className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'>Đặt ngay</button>
         </div>
     </div>
   )
