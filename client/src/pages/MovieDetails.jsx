@@ -15,8 +15,9 @@ const MovieDetails = () => {
   const {id} = useParams()
   const [show, setShow] = useState(null)
   const [showTrailer, setShowTrailer] = useState(false)
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false)
 
-  const {shows, axios, getToken, user, fetchFavoriteMovies, favoriteMovies, image_base_url} = useAppContext();
+  const {shows, axios, getToken, user, fetchFavoriteMovies, favoriteMovies, setFavoriteMovies, image_base_url} = useAppContext();
   
   const getShow = async ()=>{
     try {
@@ -32,18 +33,53 @@ const MovieDetails = () => {
   const handleFavorite = async()=>{
     try {
       if(!user) return toast.error("Vui long dang nhap de thuc hien chuc nang nay");
+      
+      // Ngăn spam request khi click liên tục
+      if(isUpdatingFavorite) return;
+      
+      setIsUpdatingFavorite(true);
 
+      // Optimistic UI Update - Đổi UI ngay lập tức
+      const isFavorited = favoriteMovies.find(movie => movie._id === id);
+      
+      if(isFavorited) {
+        // Remove khỏi danh sách
+        setFavoriteMovies(prev => prev.filter(movie => movie._id !== id));
+      } else {
+        // Add vào danh sách (tạm thời với movie từ show)
+        setFavoriteMovies(prev => [...prev, { _id: id, ...show.movie }]);
+      }
+
+      // Gọi API
       const {data} = await axios.post('/api/user/update-favorite', {movieId: id}, {
         headers: {
           Authorization: `Bearer ${await getToken()}`
         }
       });
+      
       if(data.success){
-        await fetchFavoriteMovies();
-        toast.success(data.message);
+        // Hiển thị toast phù hợp với hành động
+        if(isFavorited) {
+          toast.success("Đã hủy yêu thích thành công");
+        } else {
+          toast.success("Đã thêm vào yêu thích thành công");
+        }
       }
+      
     } catch (error) {
-      console.log(error)
+      console.log(error);
+      // Nếu lỗi, rollback lại UI
+      const isFavorited = favoriteMovies.find(movie => movie._id === id);
+      if(!isFavorited) {
+        // Nếu đã add mà lỗi → remove lại
+        setFavoriteMovies(prev => prev.filter(movie => movie._id !== id));
+      } else {
+        // Nếu đã remove mà lỗi → add lại
+        setFavoriteMovies(prev => [...prev, { _id: id, ...show.movie }]);
+      }
+      toast.error("Có lỗi xảy ra, vui lòng thử lại");
+    } finally {
+      setIsUpdatingFavorite(false);
     }
   }
 
