@@ -221,7 +221,14 @@ const validateSeatRules = (selectedSeats) => {
       setCurrentShowPrice(selectedTime.showPrice || show?.showPrice || 0);
       setIsEveningShow(selectedTime.isEveningShow || false);
     }
-  }, [selectedTime]);
+  }, [selectedTime, show]);
+  
+  // Reset ghế đã chọn khi chuyển suất chiếu
+  useEffect(() => {
+    if(selectedTime) {
+      setSelectedSeats([]);
+    }
+  }, [selectedTime?.showId]); // Chỉ trigger khi showId thay đổi
   
   // Tính giá cuối cho mỗi ghế với phụ thu
   const calculateFinalPrice = (seatId) => {

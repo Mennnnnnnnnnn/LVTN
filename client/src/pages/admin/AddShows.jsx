@@ -103,9 +103,21 @@ const AddShows = () => {
         setDateTimeSelection({});
         setShowPrice("");
       }else{
-        toast.error (data.message);
-        if(data.conflicts){
+        toast.error(data.message);
+        if(data.conflicts && data.conflicts.length > 0){
+          // Hiển thị chi tiết conflicts
           console.log('Conflicts:', data.conflicts);
+          
+          // Tạo message chi tiết cho mỗi conflict
+          const conflictMessages = data.conflicts.map((conflict, index) => 
+            `${index + 1}. ${conflict.requestedDate} ${conflict.requestedTime}\n   → ${conflict.reason}`
+          ).join('\n\n');
+          
+          // Show toast với chi tiết
+          toast.error(
+            `Phát hiện xung đột lịch chiếu:\n\n${conflictMessages}`,
+            { duration: 8000 }
+          );
         }
       }
     } catch (error) {
@@ -125,14 +137,50 @@ const AddShows = () => {
   return nowPlayingMovies.length > 0 ?  (
     <>
       <Title text1=" Thêm " text2="Chương trình" />
-      <p className="mt-10 text-lg font-medium">Phim đang phát</p>
+      <div className="mt-10 flex items-center justify-between">
+        <p className="text-lg font-medium">Phim đang phát</p>
+        <p className="text-sm text-gray-400 flex items-center gap-1">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Hover vào phim để xem thời lượng
+        </p>
+      </div>
       <div className="overflow-x-auto pb-4">
         <div className="group flex flex-wrap gap-4 mt-4 w-max">
           {nowPlayingMovies.map((movie) => (
-            <div key={movie.id} className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300`} 
+            <div key={movie.id} className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300 group/movie`} 
             onClick={() => setSelectedMovie(movie.id)}>
               <div className="relative rounded-lg overflow-hidden">
                 <img src={image_base_url + movie.poster_path} alt="" className="w-full object-cover brightness-90" />
+                
+                {/* Runtime Tooltip */}
+                {movie.runtime && (
+                  <div className="absolute top-2 left-2 opacity-0 group-hover/movie:opacity-100 transition-opacity duration-200 z-10">
+                    <div className="bg-black/95 backdrop-blur-sm px-3 py-2 rounded-lg border border-primary/50 shadow-xl min-w-[140px]">
+                      <p className="text-white text-xs font-semibold flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {movie.runtime} phút
+                      </p>
+                      <div className="mt-1.5 pt-1.5 border-t border-gray-700">
+                        <p className="text-[10px] text-gray-400">
+                          + 30 phút buffer
+                        </p>
+                        <p className="text-[11px] text-primary font-semibold mt-0.5">
+                          ≈ {movie.runtime + 30} phút tổng
+                        </p>
+                      </div>
+                      {movie.genres && movie.genres.length > 0 && (
+                        <p className="text-gray-400 text-[10px] mt-1.5 pt-1.5 border-t border-gray-700">
+                          {movie.genres.slice(0, 2).map(g => g.name).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="text-sm flex items-center justify-between p-2 bg-black/70 w-full absolute bottom-0 left-0">
                   <p className="flex items-center gap-1 text-gray-400">
                     <StarIcon className="w-4 h-4 text-primary fill-primary" />
@@ -202,18 +250,45 @@ const AddShows = () => {
       </div>
       {Object.keys(dateTimeSelection).length > 0 && (
         <div className="mt-6">
-          <h2 className="mb-2">Ngày-giờ đã chọn</h2>
-          <ul className="space-y-3">
+          <h2 className="mb-3 font-semibold">Ngày-giờ đã chọn</h2>
+          <ul className="space-y-4">
             {Object.entries(dateTimeSelection).map(([date, times]) => (
               <li key={date}>
-                <div className="font-medium">{date}</div>
-                <div className="flex flex-wrap gap-2 mt-1 text-sm">
-                  {times.map((time) => (
-                    <div key={time} className="border border-primary px-2 py-1 flex items-center rounded">
-                      <span>{time}</span>
-                      <DeleteIcon onClick={() => handleRemoveTime(date,time)} width={15} className="ml-2 text-red-500 hover:text-red-700 cursor-pointer" />
-                    </div>
-                  ))}
+                <div className="font-medium text-gray-300 mb-2">📅 {date}</div>
+                <div className="flex flex-wrap gap-3 mt-1">
+                  {times.map((time) => {
+                    // Tính thời gian kết thúc dự kiến
+                    const selectedMovieData = nowPlayingMovies.find(m => m.id === selectedMovie);
+                    const runtime = selectedMovieData?.runtime || 0;
+                    const totalDuration = runtime + 30; // +30 phút buffer
+                    
+                    // Parse time và tính end time
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const startDate = new Date();
+                    startDate.setHours(hours, minutes, 0, 0);
+                    const endDate = new Date(startDate.getTime() + totalDuration * 60000);
+                    const endTime = endDate.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
+                    
+                    return (
+                      <div key={time} className="border border-primary/50 bg-primary/5 px-3 py-2 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">{time}</span>
+                          {runtime > 0 && (
+                            <>
+                              <span className="text-gray-500">→</span>
+                              <span className="text-xs text-gray-400">{endTime}</span>
+                              <span className="text-[10px] text-gray-500">({totalDuration}')</span>
+                            </>
+                          )}
+                          <DeleteIcon 
+                            onClick={() => handleRemoveTime(date,time)} 
+                            width={15} 
+                            className="ml-1 text-red-500 hover:text-red-700 cursor-pointer transition" 
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </li>
             ))}
