@@ -107,7 +107,10 @@ const sendBookingConfirmationEmail = inngest.createFunction(
 
         const booking = await Booking.findById(bookingId).populate({
             path: 'show',
-            populate: {path: 'movie', model: 'Movie'}
+            populate: [
+                {path: 'movie', model: 'Movie'},
+                {path: 'hall', model: 'CinemaHall'}
+            ]
         }).populate('user');
         
         // Tạo QR code chứa thông tin booking
@@ -195,6 +198,12 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Giờ chiếu:</td>
                                     <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${showTime}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Phòng chiếu:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">
+                                        <span style="background: #F84565; color: white; padding: 4px 10px; border-radius: 5px; font-size: 13px;">${booking.show.hall?.name || 'N/A'}</span>
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Thời lượng:</td>
@@ -393,43 +402,103 @@ const sendShowReminders = inngest.createFunction(
 const sendNewShowNotifications = inngest.createFunction(
     {id: "send-new-show-notifications"},
     {event: "app/show.added"},
-    async ({event}) => {
-        const {movieTitle} = event.data;
+    async ({event, step}) => {
+        const {movieTitle, movieId} = event.data;
 
-        const users = await User.find({})
+        // Lấy thông tin chi tiết phim để email đẹp hơn
+        const movie = await step.run('get-movie-details', async () => {
+            const Movie = (await import('../models/Movie.js')).default;
+            return await Movie.findById(movieId);
+        });
 
-        for(const user of users){
-            const userEmail = user.email;
-            const userName = user.name;
-
-            const subject = `🎬 Phim mới được thêm: ${movieTitle}`;
-            const body = `
-                        <div style="font-family: Arial, sans-serif; padding: 20px;">
-                        <h2>Xin chào ${userName},</h2>
-
-                        <p>Chúng tôi vừa thêm một bộ phim mới vào thư viện:</p>
-
-                        <h3 style="color: #F84565;">${movieTitle}</h3>
-
-                        <p>Hãy truy cập website của chúng tôi để xem chi tiết.</p>
-
-                        <br/>
-
-                        <p>
-                            Trân trọng,<br/>
-                            Đội ngũ QuickShow
-                        </p>
-                        </div>
-            `;
-
-            await sendEmail({
-                to: userEmail,
-                subject,
-                body
-            })
+        if (!movie) {
+            console.log('Movie not found, skip notification');
+            return {message: "Movie not found"};
         }
 
-        return {message: "Đã gửi thông báo."}
+        const users = await User.find({});
+
+        // Gửi email theo batch để tránh quá tải
+        const batchSize = 50;
+        for (let i = 0; i < users.length; i += batchSize) {
+            await step.run(`send-batch-${i}`, async () => {
+                const batch = users.slice(i, i + batchSize);
+                
+                const promises = batch.map(user => {
+                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                    const movieUrl = `${frontendUrl}/movies/${movie._id}`;
+                    
+                    return sendEmail({
+                        to: user.email,
+                        subject: `🎬 Phim mới: ${movie.title}`,
+                        body: `
+                            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px;">
+                                <div style="background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                                    <!-- Header -->
+                                    <div style="text-align: center; margin-bottom: 25px;">
+                                        <h1 style="color: #F84565; margin: 0; font-size: 28px; font-weight: 700;">🎬 QUICKSHOW</h1>
+                                        <p style="color: #666; margin: 10px 0 0 0; font-size: 16px;">PHIM MỚI VỪA RA MẮT!</p>
+                                    </div>
+                                    
+                                    <!-- Greeting -->
+                                    <div style="margin-bottom: 20px;">
+                                        <p style="margin: 0; font-size: 15px; color: #666;">Xin chào <strong style="color: #333;">${user.name}</strong>,</p>
+                                        <p style="margin: 10px 0 0 0; font-size: 15px; color: #666;">Chúng tôi rất vui mừng thông báo một bộ phim mới đã có mặt tại rạp! 🎉</p>
+                                    </div>
+
+                                    <!-- Movie Info -->
+                                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                                        <h2 style="color: #F84565; margin: 0 0 15px 0; font-size: 22px; font-weight: 700;">${movie.title}</h2>
+                                        
+                                        ${movie.tagline ? `<p style="margin: 0 0 15px 0; font-style: italic; color: #666; font-size: 14px;">"${movie.tagline}"</p>` : ''}
+                                        
+                                        <p style="margin: 0 0 10px 0; color: #444; font-size: 14px; line-height: 1.6;">${movie.overview ? movie.overview.substring(0, 200) + (movie.overview.length > 200 ? '...' : '') : ''}</p>
+                                        
+                                        <div style="margin-top: 15px;">
+                                            <p style="margin: 5px 0; color: #666; font-size: 13px;">
+                                                <strong>🎭 Thể loại:</strong> ${movie.genres?.map(g => g.name).join(", ") || 'N/A'}
+                                            </p>
+                                            <p style="margin: 5px 0; color: #666; font-size: 13px;">
+                                                <strong>⏱️ Thời lượng:</strong> ${movie.runtime} phút
+                                            </p>
+                                            <p style="margin: 5px 0; color: #666; font-size: 13px;">
+                                                <strong>⭐ Đánh giá:</strong> ${movie.vote_average?.toFixed(1)}/10
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- CTA Button -->
+                                    <div style="text-align: center; margin: 25px 0;">
+                                        <a href="${movieUrl}" 
+                                           style="display: inline-block; background: #F84565; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 15px rgba(248, 69, 101, 0.3);">
+                                            🎫 ĐặT VÉ NGAY
+                                        </a>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e9ecef;">
+                                        <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">Đừng bỏ lỡ cơ hội trải nghiệm!</p>
+                                        <p style="margin: 0; color: #999; font-size: 12px;">
+                                            Trân trọng,<br/>
+                                            <strong style="color: #F84565;">Đội ngũ QuickShow</strong>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Outer Footer -->
+                                <div style="text-align: center; padding: 20px; color: white; font-size: 12px;">
+                                    <p style="margin: 0;">© 2024 QuickShow. All rights reserved.</p>
+                                </div>
+                            </div>
+                        `
+                    });
+                });
+
+                await Promise.allSettled(promises);
+            });
+        }
+
+        return {message: `Đã gửi thông báo phim "${movieTitle}" cho ${users.length} người dùng.`}
     }
 )
 

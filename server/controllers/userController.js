@@ -5,6 +5,7 @@
 import { clerkClient } from "@clerk/express";
 import Booking from "../models/Booking.js";
 import Movie from "../models/Movie.js";
+import User from "../models/User.js";
 
 
 export const getUserBookings = async (req, res) => {
@@ -20,27 +21,49 @@ export const getUserBookings = async (req, res) => {
         res.json({success: false, message: error.message});
     }
 }
-//API Controller Function to update Facvorite Movie in Clerk user metadata
+//API Controller Function to update Favorite Movie in MongoDB
 export const updateFavorite = async (req, res) => {
     try {
         const {movieId} = req.body;
         const userId = req.auth().userId;
-        const user = await clerkClient.users.getUser(userId);
-
-        if(!user.privateMetadata.favorites){
-            user.privateMetadata.favorites = [];
+        
+        // Find user in MongoDB
+        let user = await User.findById(userId);
+        
+        // If user doesn't exist, create one (shouldn't happen but safety check)
+        if(!user){
+            const clerkUser = await clerkClient.users.getUser(userId);
+            user = await User.create({
+                _id: userId,
+                name: clerkUser.firstName + ' ' + clerkUser.lastName,
+                email: clerkUser.emailAddresses[0].emailAddress,
+                image: clerkUser.imageUrl,
+                favoriteMovies: []
+            });
         }
-        if(!user.privateMetadata.favorites.includes(movieId)){
-            user.privateMetadata.favorites.push(movieId);
-        }else{
-            user.privateMetadata.favorites = user.privateMetadata.favorites.filter(item => item !== movieId);
+
+        // Initialize favoriteMovies array if it doesn't exist
+        if(!user.favoriteMovies){
+            user.favoriteMovies = [];
         }
 
-        await clerkClient.users.updateUserMetadata(userId, {
-            privateMetadata: user.privateMetadata
-        });
+        // Toggle favorite
+        const movieIndex = user.favoriteMovies.indexOf(movieId);
+        let message;
+        
+        if(movieIndex === -1){
+            // Add to favorites
+            user.favoriteMovies.push(movieId);
+            message = 'Đã thêm vào yêu thích thành công';
+        } else {
+            // Remove from favorites
+            user.favoriteMovies.splice(movieIndex, 1);
+            message = 'Đã hủy yêu thích thành công';
+        }
 
-        res.json({success: true, message: 'Cập nhật phim yêu thích thành công'});
+        await user.save();
+
+        res.json({success: true, message});
 
     } catch (error) {
         console.error(error.message);
@@ -48,15 +71,17 @@ export const updateFavorite = async (req, res) => {
     }
 }
 
-//API Controller Function to get Favorite Movies from Clerk user metadata
+//API Controller Function to get Favorite Movies from MongoDB
 export const getFavorites = async (req, res) => {
     try {
-        const user = await clerkClient.users.getUser(req.auth().userId);
-        const favorites = user.privateMetadata.favorites;
-        //getting movie from database
-        const movies = await Movie.find({_id: {$in: favorites}});
+        const userId = req.auth().userId;
+        const user = await User.findById(userId).populate('favoriteMovies');
         
-        res.json({success: true, movies});
+        if(!user || !user.favoriteMovies){
+            return res.json({success: true, movies: []});
+        }
+
+        res.json({success: true, movies: user.favoriteMovies});
 
     } catch (error) {
         console.error(error.message);

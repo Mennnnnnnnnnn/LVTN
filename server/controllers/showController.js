@@ -35,7 +35,9 @@ export const addShow = async (req, res) => {
         }
 
         let movie = await Movie.findById(movieId);
+        let isNewMovie = false; // Track nếu đây là movie mới
         if(!movie){
+            isNewMovie = true; // Đánh dấu là movie mới
             //Fetch movie details, credits and videos from TMDB API
             const [movieDetailsResponse, movieCreditsResponse, movieVideosResponse] = await Promise.all([
                 axios.get(`https://api.themoviedb.org/3/movie/${movieId}?language=vi-VN`,{
@@ -152,13 +154,16 @@ export const addShow = async (req, res) => {
             await Show.insertMany(showsToCreate);
         }
 
-        //trigger inngest event
-        await inngest.send({
-            name: "app/show.added",
-            data: {
-                movieTitle: movie.title
-            }
-        })
+        // Chỉ gửi email thông báo nếu đây là movie MỚI lần đầu
+        if(isNewMovie){
+            await inngest.send({
+                name: "app/show.added",
+                data: {
+                    movieTitle: movie.title,
+                    movieId: movie._id
+                }
+            });
+        }
 
         res.json({
             success: true, 

@@ -55,9 +55,24 @@ export const getAllBookings = async (req, res) => {
     try {
         const bookings = await Booking.find({}).populate('user').populate({
             path: 'show',
-            populate: 'movie'
+            populate: [
+                { path: 'movie' },
+                { path: 'hall' }
+            ]
         }).sort({createdAt: -1});
         res.json({success: true, bookings});
+    } catch (error) {
+        console.log(error.message);
+        res.json({success: false, message: error.message});
+    }
+}
+
+//API to get all users
+
+export const getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).populate('favoriteMovies').sort({createdAt: -1});
+        res.json({success: true, users});
     } catch (error) {
         console.log(error.message);
         res.json({success: false, message: error.message});

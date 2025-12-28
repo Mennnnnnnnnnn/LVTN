@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboardIcon, ListCollapseIcon, ListIcon, PlaySquareIcon } from 'lucide-react';
+import { LayoutDashboardIcon, ListCollapseIcon, ListIcon, PlaySquareIcon, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 const AdminSidebar = () => {
@@ -13,6 +13,7 @@ const AdminSidebar = () => {
         {name: 'Thêm chương trình ' , path: '/admin/add-shows', icon: PlaySquareIcon},
         {name: 'Danh sách chương trình' , path: '/admin/list-shows', icon: ListIcon},
         {name: 'Danh sách đặt chỗ' , path: '/admin/list-bookings', icon: ListCollapseIcon},
+        {name: 'Danh sách người dùng' , path: '/admin/list-users', icon: Users},
     ]
   return (
     <div className='h-[calc(100vh-64px)] md:flex flex-col items-center pt-8 max-w-13 md:max-w-60 w-full border-r border-gray-300/20 text-sm'>
