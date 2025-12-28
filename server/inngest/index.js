@@ -310,15 +310,15 @@ const sendBookingConfirmationEmail = inngest.createFunction(
 
 const sendShowReminders = inngest.createFunction(
     { id:'send-show-reminders'},
-    {cron: "0 */8 * * *"}, // chạy mỗi 8h
+    {cron: "0 */1 * * *"}, // chạy mỗi 1h để không miss reminder
     async ({step}) => {
         const now = new Date();
-        const in8Hours = new Date(now.getTime() + 8 * 60 * 60 * 1000);// 8h sau
+        const in3Hours = new Date(now.getTime() + 3 * 60 * 60 * 1000);// 3h sau
 
         //chuẩn bị nhiệm vụ nhắc nhở
         const remindersTasks = await step.run("perpare-reminder-tasks", async () => {
             const shows = await Show.find({
-                showTime: {$gte: windowStart, $lt: in8Hours},
+                showTime: {$gte: now, $lt: in3Hours},
             }).populate('movie');
 
             const tasks = [];
@@ -374,8 +374,8 @@ const sendShowReminders = inngest.createFunction(
                         </p>
 
                         <p>
-                            Phim sẽ bắt đầu trong khoảng <strong>8 tiếng nữa</strong>,
-                            hãy chắc chắn bạn đã sẵn sàng!
+                            Phim sẽ bắt đầu trong khoảng <strong>3 tiếng nữa</strong>,
+                            hãy chắc chắn bạn đã sẵn sàng và đến rạp đúng giờ!
                         </p>
 
                         <br/>
