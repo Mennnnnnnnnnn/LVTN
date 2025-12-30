@@ -4,6 +4,7 @@ import { dummyDateTimeData, dummyShowsData } from '../assets/assets';
 import BlurCircle from '../components/BlurCircle';
 import { Heart, PlayCircleIcon, StarIcon } from 'lucide-react';
 import timeFormat from '../lib/timeFormat';
+import { formatDate, getYear } from '../lib/dateFormat';
 import DateSelect from '../components/DateSelect';
 import MovieCard from '../components/MovieCard';
 import Loading from '../components/Loading';
@@ -117,10 +118,10 @@ const MovieDetails = () => {
           <p className='text-grap-400 mt-2 text-sm leading-tight max-w-xl'>{show.movie.overview}</p>
           <p>
             {timeFormat(show.movie.runtime)} • {show.movie.genres.map(genre => 
-              genre.name).join(", ")} • {show.movie.release_date.split("-")[0]}
+              genre.name).join(", ")} • {getYear(show.movie.release_date)}
           </p>
           <p className='text-gray-400 text-sm'>
-            <span className='text-gray-300 font-medium'>Ngày khởi chiếu:</span> {new Date(show.movie.release_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            <span className='text-gray-300 font-medium'>Ngày khởi chiếu:</span> {formatDate(show.movie.release_date)}
           </p>
           <div className='flex items-center flex-wrap gap-4 mt-4'>
             <button 

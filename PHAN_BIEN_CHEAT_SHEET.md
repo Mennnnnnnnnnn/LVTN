@@ -1,4 +1,4 @@
-# 🎯 CHEAT SHEET PHẢN BIỆN - HỆ THỐNG ĐẶT VÉ XEM PHIM
+  # 🎯 CHEAT SHEET PHẢN BIỆN - HỆ THỐNG ĐẶT VÉ XEM PHIM
 
 ## 📋 MỤC LỤC
 1. [Ràng buộc chọn ghế](#1-ràng-buộc-chọn-ghế)

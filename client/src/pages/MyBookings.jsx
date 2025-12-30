@@ -7,12 +7,16 @@ import { dateFormat } from '../lib/dateFormat';
 import { vndFormat } from '../lib/currencyFormat';
 import { useAppContext } from '../context/AppContext';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { X } from 'lucide-react';
+
 const MyBookings = () => {
 
   const {axios, getToken, user, image_base_url} = useAppContext();
 
   const [bookings, setBookings] = useState([])
   const [isLoading , setIsLoading] = useState(true)
+  const [cancellingId, setCancellingId] = useState(null)
 
   const getMyBookings = async()=> {
     try {
@@ -29,6 +33,45 @@ const MyBookings = () => {
     }
     setIsLoading(false)
   }
+
+  const handleCancelBooking = async (bookingId) => {
+    if (!confirm('Bạn có chắc chắn muốn hủy vé này?')) {
+      return;
+    }
+
+    setCancellingId(bookingId);
+    try {
+      const { data } = await axios.post(`/api/booking/cancel/${bookingId}`, {}, {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`
+        }
+      });
+
+      if (data.success) {
+        toast.success(data.message);
+        // Refresh bookings
+        getMyBookings();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Có lỗi xảy ra khi hủy vé');
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
+  const canCancelBooking = (booking) => {
+    if (booking.status === 'cancelled') return false;
+    
+    const showTime = new Date(booking.show.showDateTime);
+    const now = new Date();
+    const hoursUntilShow = (showTime - now) / (1000 * 60 * 60);
+    
+    return hoursUntilShow >= 6; // Có thể hủy nếu còn >= 6h
+  }
+
   useEffect(()=>{
     if(user){
       getMyBookings()
@@ -44,21 +87,74 @@ const MyBookings = () => {
       <h1 className='text-lg font-semibold mb-4'>Vé đặt của tôi</h1>
       {bookings && bookings.length > 0 ? (
         bookings.filter(item => item.show && item.show.movie).map((item, index)=>(
-        <div key={index} className='flex flex-col md:flex-row justify-between bg-primary/8 border border-primary/20 rounded-lg mt-4 p-2 max-w-3xl'>
+        <div 
+          key={index} 
+          className={`flex flex-col md:flex-row justify-between rounded-lg mt-4 p-2 max-w-3xl relative ${
+            item.status === 'cancelled' 
+              ? 'bg-gray-800/30 border border-gray-600/30 opacity-60' 
+              : 'bg-primary/8 border border-primary/20'
+          }`}
+        >
+          {/* Cancelled Badge */}
+          {item.status === 'cancelled' && (
+            <div className='absolute top-4 right-4 bg-red-500/80 text-white px-3 py-1 rounded-full text-xs font-semibold z-10'>
+              ĐÃ HỦY
+            </div>
+          )}
+
           <div className='flex flex-col md:flex-row'>
-            <img src={image_base_url + item.show.movie.poster_path} alt=""  className='md:max-w-45 aspect-video h-auto object-cover object-bottom rounded'/>
+            <img 
+              src={image_base_url + item.show.movie.poster_path} 
+              alt=""  
+              className='md:max-w-45 aspect-video h-auto object-cover object-bottom rounded'
+            />
             <div className='flex flex-col p-4'>
               <p className='text-lg font-semibold'>{item.show.movie.title}</p>
               <p className='text-gray-400 text-sm'>{timeFormat(item.show.movie.runtime)}</p>
               <p className='text-gray-400 text-sm mt-auto'>{dateFormat(item.show.showDateTime)}</p>
+              
+              {/* Refund Info */}
+              {item.status === 'cancelled' && item.refundAmount && (
+                <div className='mt-2 text-xs bg-green-500/10 border border-green-500/30 rounded px-2 py-1'>
+                  <p className='text-green-400'>
+                    Hoàn: {vndFormat(item.refundAmount)} ({item.refundPercentage}%)
+                  </p>
+                </div>
+              )}
             </div>
           </div>
+
           <div className='flex flex-col md:items-end md:text-right justify-between p-4'>
-            <div className='flex items-center gap-4'>
-              <p className='text-2xl font-semibold mb-3'>{vndFormat(item.amount)}</p>
-              {!item.ispaid && <Link to={item.paymentLink} className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer'>Thanh toán ngay</Link>}
+            <div className='flex flex-col gap-2'>
+              <p className='text-2xl font-semibold'>{vndFormat(item.amount)}</p>
+              
+              {/* Action Buttons */}
+              {item.status !== 'cancelled' && (
+                <div className='flex flex-col gap-2'>
+                  {!item.ispaid && (
+                    <Link 
+                      to={item.paymentLink} 
+                      className='bg-primary px-4 py-1.5 text-sm rounded-full font-medium cursor-pointer text-center'
+                    >
+                      Thanh toán ngay
+                    </Link>
+                  )}
+                  
+                  {canCancelBooking(item) && (
+                    <button
+                      onClick={() => handleCancelBooking(item._id)}
+                      disabled={cancellingId === item._id}
+                      className='flex items-center justify-center gap-1 bg-red-600/80 hover:bg-red-600 px-4 py-1.5 text-sm rounded-full font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      <X size={14} />
+                      {cancellingId === item._id ? 'Đang hủy...' : 'Hủy vé'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <div className='text-sm'>
+
+            <div className='text-sm mt-auto'>
               <p><span className='text-gray-400'>Tổng số vé: </span>{item.bookedSeats.length}</p>
               <p><span className='text-gray-400'>Số ghế: </span>{item.bookedSeats.join(", ")}</p>
             </div>

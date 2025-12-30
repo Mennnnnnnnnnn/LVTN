@@ -3,6 +3,106 @@ import Movie from '../models/Movie.js';
 import Show from '../models/Show.js';
 import CinemaHall from '../models/CinemaHall.js';
 import { inngest } from '../inngest/index.js';
+
+// API to get upcoming movies from TMDB API
+export const getUpcomingMovies = async (req, res) => {
+    try {
+       // Lấy phim sắp khởi chiếu tại Việt Nam (chính xác hơn)
+       const {data} = await axios.get('https://api.themoviedb.org/3/movie/upcoming?language=vi-VN&region=VN',{
+        headers: {
+            Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+        }
+       });
+       
+       // Filter và sort phim sắp khởi chiếu
+       const today = new Date();
+       today.setHours(0, 0, 0, 0);
+       
+       const upcomingMovies = data.results
+           .filter(movie => {
+               const releaseDate = new Date(movie.release_date);
+               // Chỉ lấy phim có ngày khởi chiếu trong tương lai
+               return releaseDate >= today;
+           })
+           .sort((a, b) => {
+               // Ưu tiên phim MỚI: sort theo ngày release giảm dần
+               // Phim gần ngày hôm nay hơn sẽ lên đầu
+               return new Date(a.release_date) - new Date(b.release_date);
+           });
+       
+       // Fetch runtime và filter phim cũ (parallel requests)
+       const moviesPromises = upcomingMovies.slice(0, 40).map(async (movie) => {
+           try {
+               // Kiểm tra xem movie đã có trong DB chưa
+               const existingMovie = await Movie.findById(movie.id);
+               if (existingMovie?.runtime) {
+                   return {
+                       ...movie,
+                       runtime: existingMovie.runtime,
+                       genres: existingMovie.genres,
+                       originalYear: new Date(existingMovie.release_date).getFullYear()
+                   };
+               }
+               
+               // Nếu chưa có, fetch từ TMDB để lấy thông tin đầy đủ
+               const {data: detailData} = await axios.get(
+                   `https://api.themoviedb.org/3/movie/${movie.id}?language=vi-VN`,
+                   {
+                       headers: {
+                           Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                       }
+                   }
+               );
+               
+               // Nếu overview tiếng Việt rỗng, fallback sang tiếng Anh
+               let overview = detailData.overview || movie.overview;
+               if (!overview || overview.trim() === '') {
+                   try {
+                       const {data: englishData} = await axios.get(
+                           `https://api.themoviedb.org/3/movie/${movie.id}?language=en-US`,
+                           {
+                               headers: {
+                                   Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                               }
+                           }
+                       );
+                       overview = englishData.overview || 'Nội dung phim đang được cập nhật...';
+                   } catch (error) {
+                       overview = 'Nội dung phim đang được cập nhật...';
+                   }
+               }
+               
+               // Lấy năm sản xuất gốc từ release_date trong detail
+               const originalYear = new Date(detailData.release_date).getFullYear();
+               
+               return {
+                   ...movie,
+                   overview: overview,
+                   runtime: detailData.runtime,
+                   genres: detailData.genres,
+                   originalYear: originalYear
+               };
+           } catch (error) {
+               console.error(`Error fetching detail for movie ${movie.id}:`, error);
+               return null;
+           }
+       });
+       
+       const moviesResults = await Promise.all(moviesPromises);
+       
+       // Filter: Loại phim tái chiếu quá cũ (trước 2020)
+       const moviesWithRuntime = moviesResults
+           .filter(movie => movie !== null && movie.originalYear >= 2020)
+           .slice(0, 20);
+       
+       res.json({success: true, movies: moviesWithRuntime});
+       
+    } catch (error) {        
+        console.error('Error fetching upcoming movies:', error);
+        res.json({success: false, movies:[]} )
+    }
+}
+
 // API to get now playing movies from TMDB API with runtime info
 export const getNowPlayingMovies = async (req, res) => {
     try {
@@ -76,6 +176,8 @@ export const addShow = async (req, res) => {
 
         let movie = await Movie.findById(movieId);
         let isNewMovie = false; // Track nếu đây là movie mới
+        let movieReleaseDate = null;
+        
         if(!movie){
             isNewMovie = true; // Đánh dấu là movie mới
             //Fetch movie details, credits and videos from TMDB API
@@ -105,10 +207,30 @@ export const addShow = async (req, res) => {
                 video => video.type === 'Trailer' && video.site === 'YouTube'
             );
 
+            // ✅ Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
+            let overview = movieApiData.overview;
+            if (!overview || overview.trim() === '') {
+                try {
+                    const {data: englishData} = await axios.get(
+                        `https://api.themoviedb.org/3/movie/${movieId}?language=en-US`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                            }
+                        }
+                    );
+                    overview = englishData.overview || 'Nội dung phim đang được cập nhật...';
+                } catch (error) {
+                    overview = 'Nội dung phim đang được cập nhật...';
+                }
+            }
+
+            movieReleaseDate = new Date(movieApiData.release_date);
+
             const movieDetails = {
                 _id: movieId,
                 title: movieApiData.title,
-                overview: movieApiData.overview,
+                overview: overview,
                 poster_path: movieApiData.poster_path,
                 backdrop_path: movieApiData.backdrop_path,
                 genres: movieApiData.genres,
@@ -122,7 +244,17 @@ export const addShow = async (req, res) => {
             }
             // Add movie to database
             movie = await Movie.create(movieDetails);
+        } else {
+            movieReleaseDate = new Date(movie.release_date);
         }
+
+        // Chuẩn bị date để so sánh
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        movieReleaseDate.setHours(0, 0, 0, 0);
+        
+        // ✅ Admin có thể add show BẤT CỨ LÚC NÀO
+        // ✅ Validation chỉ check: Ngày show phải >= ngày khởi chiếu (check trong vòng lặp bên dưới)
 
         // Calculate show end time (runtime + buffer + cleaning)
         const BUFFER_TIME = 10; // phút (quảng cáo, giới thiệu)
@@ -161,6 +293,22 @@ export const addShow = async (req, res) => {
                 const dateTimeString = `${showDate}T${time}`;
                 const showDateTime = new Date(dateTimeString);
                 const endDateTime = new Date(showDateTime.getTime() + totalDuration * 60000);
+                
+                // ✅ Validation: Ngày show LUÔN phải >= ngày khởi chiếu phim (cả phim đang chiếu và sắp chiếu)
+                const showDateOnly = new Date(showDate);
+                showDateOnly.setHours(0, 0, 0, 0);
+                
+                // So sánh đầy đủ: Year, Month, Day
+                if (showDateOnly.getTime() < movieReleaseDate.getTime()) {
+                    conflicts.push({
+                        requestedTime: time,
+                        requestedDate: showDate,
+                        conflictWith: movie.title,
+                        conflictTime: '',
+                        reason: `Không thể tạo suất chiếu trước ngày khởi chiếu phim (${movieReleaseDate.toLocaleDateString('vi-VN', {year: 'numeric', month: '2-digit', day: '2-digit'})})`
+                    });
+                    continue;
+                }
 
                 // Check for conflicts with existing shows in the same hall (DB)
                 const conflictingShows = await Show.find({
@@ -270,7 +418,7 @@ export const addShow = async (req, res) => {
         });
     } catch (error) {
         console.error('Error adding show:', error);
-        res.json({success: false, message: 'Failed to add show'})
+        res.json({success: false, message: 'Không thể thêm suất chiếu'})
     }
 }
 //API to get all shows from the database
@@ -294,12 +442,87 @@ export const getShows = async (req, res) => {
         const {movieId} = req.params;
         //nhận tất cả các chương trình sắp tới của bộ phim
         const shows = await Show.find({movie: movieId, showDateTime: {$gte: new Date()}}).populate('hall');
-        const movie = await Movie.findById(movieId);
+        let movie = await Movie.findById(movieId);
+        
+        // Nếu movie chưa có trong DB (phim sắp khởi chiếu), fetch từ TMDB
+        if(!movie){
+            try {
+                const [movieDetailsResponse, movieCreditsResponse, movieVideosResponse] = await Promise.all([
+                    axios.get(`https://api.themoviedb.org/3/movie/${movieId}?language=vi-VN`,{
+                        headers: {
+                            Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                        }
+                    }),
+                    axios.get(`https://api.themoviedb.org/3/movie/${movieId}/credits?language=vi-VN`,{
+                        headers: {
+                            Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                        }
+                    }),
+                    axios.get(`https://api.themoviedb.org/3/movie/${movieId}/videos`,{
+                        headers: {
+                            Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                        }
+                    })
+                ]);
+                
+                const movieApiData = movieDetailsResponse.data;
+                const movieCreditsData = movieCreditsResponse.data;
+                const movieVideosData = movieVideosResponse.data;
+
+                const trailer = movieVideosData.results.find(
+                    video => video.type === 'Trailer' && video.site === 'YouTube'
+                );
+
+                // Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
+                let overview = movieApiData.overview;
+                if (!overview || overview.trim() === '') {
+                    try {
+                        const {data: englishData} = await axios.get(
+                            `https://api.themoviedb.org/3/movie/${movieId}?language=en-US`,
+                            {
+                                headers: {
+                                    Authorization: `Bearer ${process.env.TMDB_API_KEY}`
+                                }
+                            }
+                        );
+                        overview = englishData.overview || 'Nội dung phim đang được cập nhật...';
+                    } catch (error) {
+                        overview = 'Nội dung phim đang được cập nhật...';
+                    }
+                }
+
+                // Tạo object movie tạm thời (chưa lưu vào DB)
+                movie = {
+                    _id: movieId,
+                    title: movieApiData.title,
+                    overview: overview,
+                    poster_path: movieApiData.poster_path,
+                    backdrop_path: movieApiData.backdrop_path,
+                    genres: movieApiData.genres,
+                    casts: movieCreditsData.cast,
+                    release_date: movieApiData.release_date,
+                    original_language: movieApiData.original_language,
+                    tagline: movieApiData.tagline||"",
+                    vote_average: movieApiData.vote_average,
+                    runtime: movieApiData.runtime,
+                    trailer_key: trailer?.key || "",
+                };
+            } catch (tmdbError) {
+                console.error('Error fetching movie from TMDB:', tmdbError);
+                return res.json({success: false, message: 'Không tìm thấy thông tin phim'});
+            }
+        }
+        
         const dateTime = {};
         let showPrice = 0;
         let hall = null;
         
-        shows.forEach(show => {
+        // ✅ Filter out shows in maintenance or inactive halls
+        const activeShows = shows.filter(show => 
+            show.hall && show.hall.status === 'active'
+        );
+        
+        activeShows.forEach(show => {
             const dateKey = show.showDateTime.toISOString().split('T')[0];
             if(!dateTime[dateKey]){
                 dateTime[dateKey] = [];
@@ -327,7 +550,8 @@ export const getShows = async (req, res) => {
                     totalSeats: show.hall.totalSeats,
                     seatLayout: show.hall.seatLayout,
                     customRowSeats: show.hall.customRowSeats,
-                    priceMultiplier: show.hall.priceMultiplier
+                    priceMultiplier: show.hall.priceMultiplier,
+                    brokenSeats: show.hall.brokenSeats || []  // ✅ Thêm ghế hỏng
                 }
             });
             // Lấy showPrice và hall từ show đầu tiên

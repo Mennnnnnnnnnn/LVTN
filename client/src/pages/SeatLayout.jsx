@@ -116,6 +116,11 @@ const validateSeatRules = (selectedSeats) => {
     const row = seatId[0];
     const seatNum = parseInt(seatId.slice(1));
     
+    // ⚠️ Kiểm tra ghế hỏng
+    if(hall?.brokenSeats?.includes(seatId)){
+      return toast.error("Ghế này đang bảo trì, không thể đặt")
+    }
+    
     // Kiểm tra xem dãy này có phải là ghế đôi không
     const isCoupleSeat = hall?.seatLayout?.coupleSeatsRows?.includes(row);
     
@@ -123,6 +128,11 @@ const validateSeatRules = (selectedSeats) => {
       // Ghế đôi: chọn/bỏ chọn cặp ghế (số lẻ-chẵn)
       const isOddSeat = seatNum % 2 === 1;
       const coupleSeat = isOddSeat ? `${row}${seatNum + 1}` : `${row}${seatNum - 1}`;
+      
+      // ⚠️ Kiểm tra ghế đôi hỏng
+      if(hall?.brokenSeats?.includes(coupleSeat)){
+        return toast.error("Ghế đôi này có ghế đang bảo trì, không thể đặt")
+      }
       
       // Kiểm tra cả 2 ghế đã được đặt chưa
       if(occupiedSeats.includes(seatId) || occupiedSeats.includes(coupleSeat)){
@@ -176,18 +186,21 @@ const validateSeatRules = (selectedSeats) => {
             const seatId = `${row}${i+1}`;
             const isSelected = selectedSeats.includes(seatId);
             const isOccupied = occupiedSeats.includes(seatId);
+            const isBroken = hall?.brokenSeats?.includes(seatId);
             
             // Nếu là ghế đôi, thêm style đặc biệt
             const coupleClass = isCoupleSeat ? 'border-2 border-pink-500' : 'border border-primary/60';
             
             return (
               <button key={seatId} onClick={()=> handleSeatClick(seatId)}
-               className={`h-8 w-8 rounded ${coupleClass} cursor-pointer transition-all
-               ${isSelected && "bg-primary text-white scale-110"}
+               className={`h-8 w-8 rounded ${coupleClass} cursor-pointer transition-all relative
+               ${isSelected && !isBroken && "bg-primary text-white scale-110"}
                ${isOccupied && "opacity-30 cursor-not-allowed bg-gray-600"}
-               ${!isSelected && !isOccupied && "hover:bg-primary/30"}`}
-               disabled={isOccupied}>
-                {seatId}
+               ${isBroken && "bg-red-500/80 cursor-not-allowed text-white"}
+               ${!isSelected && !isOccupied && !isBroken && "hover:bg-primary/30"}`}
+               disabled={isOccupied || isBroken}
+               title={isBroken ? "Ghế đang bảo trì" : isOccupied ? "Ghế đã được đặt" : seatId}>
+                {isBroken ? '✕' : seatId}
               </button>
             );
           })}
@@ -350,6 +363,10 @@ const validateSeatRules = (selectedSeats) => {
           <div className='flex items-center gap-2'>
             <div className='h-6 w-6 rounded bg-gray-600 opacity-30'></div>
             <span>Đã đặt</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className='h-6 w-6 rounded bg-red-500 text-white flex items-center justify-center text-xs'>✕</div>
+            <span>Bảo trì</span>
           </div>
         </div>
         

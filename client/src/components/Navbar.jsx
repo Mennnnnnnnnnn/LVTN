@@ -25,9 +25,9 @@ const Navbar = () => {
             <XIcon className='md:hidden absolute top-6 right-6 w-6 h-6 cursor-pointer' onClick={()=>setIsOpen(!isOpen)} />
 
             <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Trang Chủ</Link>
-            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/movies'>Phim</Link>
-            {/* <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
-            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link> */}
+            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/movies'>Phim đang chiếu</Link>
+            <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/upcoming-movies'>Phim sắp khởi chiếu</Link>
+            {/* <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link> */}
             {favoriteMovies.length > 0 && <Link onClick={()=>{scrollTo(0,0); setIsOpen(false)}} to='/favorite'>Yêu thích</Link>}
         </div>
         <div className='flex items-center gap-8'>

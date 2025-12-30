@@ -12,6 +12,8 @@ const AddShows = () => {
   const {axios, getToken, user, image_base_url} = useAppContext();
 
   const [nowPlayingMovies , setNowPlayingMovies] = useState([]) ;
+  const [upcomingMovies, setUpcomingMovies] = useState([]);
+  const [activeTab, setActiveTab] = useState('now-playing'); // 'now-playing' or 'upcoming'
   const [cinemaHalls, setCinemaHalls] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [selectedHall, setSelectedHall] = useState(null);
@@ -33,6 +35,17 @@ const AddShows = () => {
       }
     } catch (error) {
       console.error('Error fetching movies:',error)
+    }
+  };
+
+  const fetchUpcomingMovies = async() => {
+    try {
+      const {data} = await axios.get('/api/show/upcoming');
+      if(data.success){
+        setUpcomingMovies(data.movies);
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming movies:', error)
     }
   };
 
@@ -62,8 +75,9 @@ const AddShows = () => {
     setDateTimeSelection ((prev) => {
       const filteredTimes = prev[date].filter((t) => t!== time);
       if(filteredTimes.length === 0){
+        // Xóa hết suất trong ngày này → xóa luôn key date
         const {[date]: _,...rest} = prev;
-        return prev;
+        return rest; // ✅ FIX: return rest thay vì prev
       }
       return {
         ...prev,
@@ -130,15 +144,68 @@ const AddShows = () => {
   useEffect(()=> {
     if(user){
       fetchNowPlayingMovies();
+      fetchUpcomingMovies();
       fetchCinemaHalls();
     }
   },[user]);
 
-  return nowPlayingMovies.length > 0 ?  (
+  // Get current movies list based on active tab
+  const currentMovies = activeTab === 'now-playing' ? nowPlayingMovies : upcomingMovies;
+
+  return (nowPlayingMovies.length > 0 || upcomingMovies.length > 0) ?  (
     <>
       <Title text1=" Thêm " text2="Chương trình" />
-      <div className="mt-10 flex items-center justify-between">
-        <p className="text-lg font-medium">Phim đang phát</p>
+      
+      {/* Tabs */}
+      <div className="mt-10 flex items-center gap-4 border-b border-gray-700">
+        <button
+          onClick={() => {
+            setActiveTab('now-playing');
+            setSelectedMovie(null);
+          }}
+          className={`px-6 py-3 font-medium transition-all relative ${
+            activeTab === 'now-playing'
+              ? 'text-primary'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Phim đang chiếu
+          {activeTab === 'now-playing' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+          {nowPlayingMovies.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full">
+              {nowPlayingMovies.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('upcoming');
+            setSelectedMovie(null);
+          }}
+          className={`px-6 py-3 font-medium transition-all relative ${
+            activeTab === 'upcoming'
+              ? 'text-primary'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Phim sắp khởi chiếu
+          {activeTab === 'upcoming' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+          {upcomingMovies.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full">
+              {upcomingMovies.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <p className="text-lg font-medium">
+          {activeTab === 'now-playing' ? 'Phim đang phát' : 'Phim sắp khởi chiếu'}
+        </p>
         <p className="text-sm text-gray-400 flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -148,11 +215,18 @@ const AddShows = () => {
       </div>
       <div className="overflow-x-auto pb-4">
         <div className="group flex flex-wrap gap-4 mt-4 w-max">
-          {nowPlayingMovies.map((movie) => (
+          {currentMovies.map((movie) => (
             <div key={movie.id} className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300 group/movie`} 
             onClick={() => setSelectedMovie(movie.id)}>
               <div className="relative rounded-lg overflow-hidden">
                 <img src={image_base_url + movie.poster_path} alt="" className="w-full object-cover brightness-90" />
+                
+                {/* Badge cho phim sắp khởi chiếu */}
+                {activeTab === 'upcoming' && (
+                  <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] font-semibold px-2 py-1 rounded">
+                    SẮP CHIẾU
+                  </div>
+                )}
                 
                 {/* Runtime Tooltip */}
                 {movie.runtime && (
@@ -206,31 +280,61 @@ const AddShows = () => {
       <div className="mt-8">
         <p className="text-lg font-medium mb-4">Chọn phòng chiếu</p>
         <div className="flex flex-wrap gap-4">
-          {cinemaHalls.map((hall) => (
-            <div 
-              key={hall._id} 
-              onClick={() => setSelectedHall(hall._id)}
-              className={`relative cursor-pointer px-6 py-4 rounded-lg border-2 transition-all ${
-                selectedHall === hall._id 
-                  ? 'border-primary bg-primary/10' 
-                  : 'border-gray-600 hover:border-primary/50'
-              }`}
-            >
-              {selectedHall === hall._id && (
-                <div className="absolute top-2 right-2 bg-primary h-5 w-5 rounded-full flex items-center justify-center">
-                  <CheckIcon className="w-3 h-3 text-white" strokeWidth={3}/>
-                </div>
-              )}
-              <h3 className="font-semibold text-base">{hall.name}</h3>
-              <p className="text-sm text-gray-400 mt-1">{hall.type}</p>
-              <p className="text-sm text-gray-400">{hall.totalSeats} ghế</p>
-              {hall.priceMultiplier > 1 && (
-                <span className="inline-block mt-2 px-2 py-1 bg-primary/20 text-primary text-xs rounded">
-                  x{hall.priceMultiplier} giá
-                </span>
-              )}
-            </div>
-          ))}
+          {cinemaHalls.map((hall) => {
+            const isMaintenance = hall.status === 'maintenance';
+            const isInactive = hall.status === 'inactive';
+            const isDisabled = isMaintenance || isInactive;
+            
+            return (
+              <div 
+                key={hall._id} 
+                onClick={() => !isDisabled && setSelectedHall(hall._id)}
+                className={`relative px-6 py-4 rounded-lg border-2 transition-all ${
+                  isDisabled
+                    ? 'opacity-50 cursor-not-allowed border-gray-700 bg-gray-900/50'
+                    : selectedHall === hall._id 
+                      ? 'border-primary bg-primary/10 cursor-pointer' 
+                      : 'border-gray-600 hover:border-primary/50 cursor-pointer'
+                }`}
+              >
+                {selectedHall === hall._id && !isDisabled && (
+                  <div className="absolute top-2 right-2 bg-primary h-5 w-5 rounded-full flex items-center justify-center">
+                    <CheckIcon className="w-3 h-3 text-white" strokeWidth={3}/>
+                  </div>
+                )}
+                
+                {/* Badge trạng thái */}
+                {isMaintenance && (
+                  <div className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-semibold px-2 py-1 rounded">
+                    BẢO TRÌ
+                  </div>
+                )}
+                {isInactive && (
+                  <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-semibold px-2 py-1 rounded">
+                    VÔ HIỆU
+                  </div>
+                )}
+                
+                <h3 className={`font-semibold text-base ${isDisabled ? 'text-gray-500' : ''}`}>
+                  {hall.name}
+                </h3>
+                <p className="text-sm text-gray-400 mt-1">{hall.type}</p>
+                <p className="text-sm text-gray-400">{hall.totalSeats} ghế</p>
+                
+                {isMaintenance && hall.maintenanceNote && (
+                  <p className="text-xs text-orange-400 mt-2 line-clamp-1">
+                    💬 {hall.maintenanceNote}
+                  </p>
+                )}
+                
+                {hall.priceMultiplier > 1 && !isDisabled && (
+                  <span className="inline-block mt-2 px-2 py-1 bg-primary/20 text-primary text-xs rounded">
+                    x{hall.priceMultiplier} giá
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -258,7 +362,7 @@ const AddShows = () => {
                 <div className="flex flex-wrap gap-3 mt-1">
                   {times.map((time) => {
                     // Tính thời gian kết thúc dự kiến
-                    const selectedMovieData = nowPlayingMovies.find(m => m.id === selectedMovie);
+                    const selectedMovieData = currentMovies.find(m => m.id === selectedMovie);
                     const runtime = selectedMovieData?.runtime || 0;
                     const totalDuration = runtime + 30; // +30 phút buffer
                     

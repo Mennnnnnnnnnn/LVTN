@@ -502,6 +502,110 @@ const sendNewShowNotifications = inngest.createFunction(
     }
 )
 
+// Inngest function gửi email xác nhận hủy vé
+const sendCancellationEmail = inngest.createFunction(
+    { id:'send-cancellation-email'},
+    { event: "app/booking.cancelled"},
+    async ({ event, step }) => {
+        const { bookingId } = event.data;
+
+        const booking = await Booking.findById(bookingId).populate({
+            path: 'show',
+            populate: [
+                {path: 'movie', model: 'Movie'},
+                {path: 'hall', model: 'CinemaHall'}
+            ]
+        }).populate('user');
+
+        if (!booking) {
+            console.log('Booking not found');
+            return { message: 'Booking not found' };
+        }
+
+        const emailBody = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                    .info-box { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #667eea; }
+                    .refund-box { background: #e8f5e9; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+                    .refund-amount { font-size: 32px; font-weight: bold; color: #2e7d32; margin: 10px 0; }
+                    .footer { text-align: center; margin-top: 20px; color: #666; font-size: 14px; }
+                    .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🎬 Hủy vé thành công</h1>
+                    </div>
+                    <div class="content">
+                        <p>Xin chào <strong>${booking.user.name}</strong>,</p>
+                        <p>Vé đặt của bạn đã được hủy thành công.</p>
+                        
+                        <div class="info-box">
+                            <h3 style="margin-top: 0; color: #667eea;">📋 Thông tin vé đã hủy</h3>
+                            <p><strong>Phim:</strong> ${booking.show.movie.title}</p>
+                            <p><strong>Phòng chiếu:</strong> ${booking.show.hall?.name || 'N/A'}</p>
+                            <p><strong>Suất chiếu:</strong> ${new Date(booking.show.showDateTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</p>
+                            <p><strong>Ghế đã đặt:</strong> ${booking.bookedSeats.join(', ')}</p>
+                            <p><strong>Số tiền đã thanh toán:</strong> ${vndFormat(booking.amount)}</p>
+                        </div>
+
+                        <div class="refund-box">
+                            <h3 style="margin-top: 0; color: #2e7d32;">💰 Thông tin hoàn tiền</h3>
+                            <p>Bạn được hoàn:</p>
+                            <div class="refund-amount">${vndFormat(booking.refundAmount)}</div>
+                            <p style="font-size: 18px; color: #666;">(${booking.refundPercentage}% giá trị vé)</p>
+                            <p style="font-size: 14px; color: #666; margin-top: 15px;">
+                                ${booking.ispaid 
+                                    ? '💳 Số tiền sẽ được hoàn lại vào tài khoản của bạn trễ nhất trong vòng 3 ngày làm việc.'
+                                    : '✅ Vé chưa thanh toán nên không có giao dịch hoàn tiền.'
+                                }
+                            </p>
+                        </div>
+
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                            <strong>📌 Chính sách hoàn vé:</strong>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>Hủy trước 24h: Hoàn 80%</li>
+                                <li>Hủy trước 12-24h: Hoàn 50%</li>
+                                <li>Hủy trước 6-12h: Hoàn 20%</li>
+                                <li>Dưới 6h: Không hoàn</li>
+                            </ul>
+                        </div>
+
+                        <p style="margin-top: 30px;">Cảm ơn bạn đã sử dụng dịch vụ QuickShow. Hẹn gặp lại bạn!</p>
+                        
+                        <div style="text-align: center;">
+                            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/movies" class="button">
+                                Xem phim khác
+                            </a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} QuickShow. Bảo lưu mọi quyền.</p>
+                        <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        await sendEmail({
+            to: booking.user.email,
+            subject: `🎫 Hủy vé thành công - Hoàn ${booking.refundPercentage}% (${vndFormat(booking.refundAmount)})`,
+            body: emailBody
+        });
+
+        return { message: 'Cancellation email sent successfully' };
+    }
+);
+
 export const functions = [
     syncUserCreation,
     syncUserDeletion,
@@ -509,5 +613,6 @@ export const functions = [
     releaseSeatAndDeleteBooking, 
     sendBookingConfirmationEmail, 
     sendShowReminders,
-    sendNewShowNotifications
+    sendNewShowNotifications,
+    sendCancellationEmail
 ];

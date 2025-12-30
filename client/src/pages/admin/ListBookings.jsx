@@ -16,6 +16,7 @@ const ListBookings = () => {
   
   // Filter states
   const [paymentFilter, setPaymentFilter] = useState('all'); // 'all', 'paid', 'unpaid'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'cancelled'
   const [dateRangeFilter, setDateRangeFilter] = useState('all'); // 'all', 'today', '7days', '30days'
   const [movieFilter, setMovieFilter] = useState('all');
   const [hallFilter, setHallFilter] = useState('all');
@@ -68,6 +69,10 @@ const ListBookings = () => {
       if (paymentFilter === 'paid' && !booking.ispaid) return false;
       if (paymentFilter === 'unpaid' && booking.ispaid) return false;
 
+      // Booking status filter (active/cancelled)
+      if (statusFilter === 'active' && booking.status === 'cancelled') return false;
+      if (statusFilter === 'cancelled' && booking.status !== 'cancelled') return false;
+
       // Date range filter (based on booking creation date)
       if (dateRangeFilter !== 'all') {
         const bookingDate = new Date(booking.createdAt);
@@ -101,7 +106,7 @@ const ListBookings = () => {
 
       return true;
     });
-  }, [bookings, paymentFilter, dateRangeFilter, movieFilter, hallFilter, searchQuery]);
+  }, [bookings, paymentFilter, statusFilter, dateRangeFilter, movieFilter, hallFilter, searchQuery]);
 
   return !isLoading ? (
     <>
@@ -125,7 +130,7 @@ const ListBookings = () => {
         <div className="flex flex-wrap items-center gap-4">
           {/* Payment Status Filter */}
           <div className="flex items-center gap-2">
-            <label className="text-gray-400 text-sm">Trạng thái:</label>
+            <label className="text-gray-400 text-sm">Thanh toán:</label>
             <select 
               value={paymentFilter} 
               onChange={(e) => setPaymentFilter(e.target.value)}
@@ -134,6 +139,20 @@ const ListBookings = () => {
               <option value="all">Tất cả</option>
               <option value="paid">Đã thanh toán</option>
               <option value="unpaid">Chưa thanh toán</option>
+            </select>
+          </div>
+
+          {/* Booking Status Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-gray-400 text-sm">Trạng thái vé:</label>
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-primary transition"
+            >
+              <option value="all">Tất cả</option>
+              <option value="active">Đang hoạt động</option>
+              <option value="cancelled">Đã hủy</option>
             </select>
           </div>
 
@@ -201,6 +220,7 @@ const ListBookings = () => {
               <th className="p-2 font-medium">Chỗ ngồi</th>
               <th className="p-2 font-medium">Số lượng</th>
               <th className="p-2 font-medium">Tổng tiền</th>
+              <th className="p-2 font-medium">Thanh toán</th>
               <th className="p-2 font-medium">Trạng thái</th>
             </tr>
           </thead>
@@ -217,15 +237,35 @@ const ListBookings = () => {
                     <td className="p-2">{item.show?.showDateTime ? dateFormat(item.show.showDateTime) : 'N/A'}</td>
                     <td className="p-2">{item.bookedSeats ? Object.keys(item.bookedSeats).map(seat => item.bookedSeats[seat]).join(", ") : 'N/A'}</td>
                     <td className="p-2">{item.bookedSeats ? Object.keys(item.bookedSeats).length : 0} vé</td>
-                    <td className="p-2">{vndFormat(item.amount || 0)}</td>
+                    <td className="p-2">
+                      {item.status === 'cancelled' && item.refundAmount ? (
+                        <div className="flex flex-col">
+                          <span className="line-through text-gray-500">{vndFormat(item.amount || 0)}</span>
+                          <span className="text-green-400 text-xs">Hoàn: {vndFormat(item.refundAmount)} ({item.refundPercentage}%)</span>
+                        </div>
+                      ) : (
+                        vndFormat(item.amount || 0)
+                      )}
+                    </td>
                     <td className="p-2">
                       {item.ispaid ? (
                         <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                          Đã thanh toán
+                          Đã TT
                         </span>
                       ) : (
                         <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                          Chưa thanh toán
+                          Chưa TT
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {item.status === 'cancelled' ? (
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                          Đã hủy
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          Hoạt động
                         </span>
                       )}
                     </td>
@@ -245,6 +285,7 @@ const ListBookings = () => {
             <button
               onClick={() => {
                 setPaymentFilter('all');
+                setStatusFilter('all');
                 setDateRangeFilter('all');
                 setMovieFilter('all');
                 setHallFilter('all');

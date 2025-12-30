@@ -32,10 +32,20 @@ export const createBooking = async (req, res) => {
         const isAvailable = await checkSeatsAvailability(showId, selectedSeats);
 
         if(!isAvailable){
-            return res.json({success: false, message: 'One or more selected seats are already booked. Please choose different seats.'});
+            return res.json({success: false, message: 'Một hoặc nhiều ghế đã chọn đã được đặt. Vui lòng chọn ghế khác.'});
         }
         // Get the show details
         const showData = await Show.findById(showId).populate('movie').populate('hall');
+        
+        // ✅ Check if hall is active
+        if(!showData.hall || showData.hall.status !== 'active'){
+            return res.json({
+                success: false, 
+                message: showData.hall?.status === 'maintenance' 
+                    ? `Phòng chiếu đang bảo trì. Lý do: ${showData.hall.maintenanceNote || 'Đang bảo trì'}`
+                    : 'Phòng chiếu không khả dụng'
+            });
+        }
         
         // Constants phụ thu
         const COUPLE_SEAT_SURCHARGE = 10000;
@@ -137,3 +147,122 @@ export const getOccupiedSeats = async (req, res) => {
         res.json({success: false, message: error.message});
     }
 }
+
+// Hàm tính % hoàn tiền dựa trên thời gian
+const calculateRefundPercentage = (showDateTime) => {
+    const now = new Date();
+    const showTime = new Date(showDateTime);
+    const hoursUntilShow = (showTime - now) / (1000 * 60 * 60); // Convert to hours
+
+    if (hoursUntilShow >= 24) {
+        return 80; // Hoàn 80% nếu hủy trước 24h
+    } else if (hoursUntilShow >= 12) {
+        return 50; // Hoàn 50% nếu hủy trước 12-24h
+    } else if (hoursUntilShow >= 6) {
+        return 20; // Hoàn 20% nếu hủy trước 6-12h
+    } else {
+        return 0; // Không hoàn nếu hủy dưới 6h
+    }
+};
+
+// API hủy vé
+export const cancelBooking = async (req, res) => {
+    try {
+        const { userId } = req.auth();
+        const { bookingId } = req.params;
+
+        // Tìm booking
+        const booking = await Booking.findById(bookingId)
+            .populate({
+                path: 'show',
+                populate: {
+                    path: 'movie hall'
+                }
+            })
+            .populate('user');
+
+        if (!booking) {
+            return res.json({ success: false, message: 'Không tìm thấy đặt vé' });
+        }
+
+        // Kiểm tra quyền sở hữu
+        if (booking.user._id.toString() !== userId) {
+            return res.json({ success: false, message: 'Bạn không có quyền hủy vé này' });
+        }
+
+        // Kiểm tra trạng thái
+        if (booking.status === 'cancelled') {
+            return res.json({ success: false, message: 'Vé này đã được hủy trước đó' });
+        }
+
+        // Kiểm tra thời gian
+        const now = new Date();
+        const showTime = new Date(booking.show.showDateTime);
+        
+        if (showTime <= now) {
+            return res.json({ success: false, message: 'Không thể hủy vé sau khi suất chiếu đã bắt đầu' });
+        }
+
+        // Giải phóng ghế
+        const showData = await Show.findById(booking.show._id);
+        booking.bookedSeats.forEach(seat => {
+            delete showData.occupiedSeats[seat];
+        });
+        showData.markModified('occupiedSeats');
+        await showData.save();
+
+        // Trường hợp 1: Vé CHƯA thanh toán - Xóa luôn, không gửi email
+        if (!booking.ispaid) {
+            await Booking.findByIdAndDelete(booking._id);
+            return res.json({ 
+                success: true, 
+                message: 'Hủy vé thành công'
+            });
+        }
+
+        // Trường hợp 2: Vé ĐÃ thanh toán - Tính hoàn tiền, gửi email
+        const refundPercentage = calculateRefundPercentage(booking.show.showDateTime);
+        
+        if (refundPercentage === 0) {
+            // Hoàn lại ghế vì không được phép hủy
+            booking.bookedSeats.forEach(seat => {
+                showData.occupiedSeats[seat] = userId;
+            });
+            showData.markModified('occupiedSeats');
+            await showData.save();
+            
+            return res.json({ 
+                success: false, 
+                message: 'Không thể hủy vé trong vòng 6 giờ trước suất chiếu' 
+            });
+        }
+
+        const refundAmount = Math.floor((booking.amount * refundPercentage) / 100);
+
+        // Cập nhật booking
+        booking.status = 'cancelled';
+        booking.cancelledAt = new Date();
+        booking.refundPercentage = refundPercentage;
+        booking.refundAmount = refundAmount;
+        await booking.save();
+
+        // Trigger Inngest event để gửi email
+        await inngest.send({
+            name: "app/booking.cancelled",
+            data: {
+                bookingId: booking._id.toString(),
+            },
+        });
+
+        res.json({ 
+            success: true, 
+            message: `Hủy vé thành công. Bạn được hoàn ${refundPercentage}% (${refundAmount.toLocaleString('vi-VN')} ₫)`,
+            refundPercentage,
+            refundAmount
+        });
+
+    } catch (error) {
+        console.error('Cancel booking error:', error);
+        res.json({ success: false, message: error.message });
+    }
+};

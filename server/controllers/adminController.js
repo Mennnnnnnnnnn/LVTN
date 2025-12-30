@@ -116,7 +116,7 @@ export const updateMoviesWithTrailers = async (req, res) => {
 
         res.json({
             success: true, 
-            message: `Updated ${updatedCount} movies successfully. ${errorCount} errors.`,
+            message: `Cập nhật ${updatedCount} phim thành công. ${errorCount} lỗi.`,
             updatedCount,
             errorCount,
             totalMovies: movies.length

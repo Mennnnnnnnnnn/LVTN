@@ -12,6 +12,7 @@ export const AppContext = createContext();
 export const AppProvider = ({ children }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [shows, setShows] = useState([]);
+    const [upcomingMovies, setUpcomingMovies] = useState([]);
     const [favoriteMovies, setFavoriteMovies] = useState([]);
 
     const image_base_url = import.meta.env.VITE_TMDB_IMAGE_BASE_URL;
@@ -52,6 +53,24 @@ export const AppProvider = ({ children }) => {
         }
     }
 
+    const fetchUpcomingMovies = async () => {
+        try {
+            const {data} = await axios.get('/api/show/upcoming');
+            if(data.success){
+                // Normalize data: đổi id thành _id để tương thích với MovieCard
+                const normalizedMovies = data.movies.map(movie => ({
+                    ...movie,
+                    _id: movie.id
+                }));
+                setUpcomingMovies(normalizedMovies);
+            }else{
+                toast.error(data.message);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
     const fetchFavoriteMovies = async () => {
         try {
             const {data} = await axios.get('/api/user/favorites', {
@@ -71,6 +90,7 @@ export const AppProvider = ({ children }) => {
 
     useEffect(() => {
         fetchShows()
+        fetchUpcomingMovies()
     },[]);
     
     useEffect(() => {
@@ -84,6 +104,7 @@ export const AppProvider = ({ children }) => {
         fetchIsAdmin,
         isAdmin,
         shows,
+        upcomingMovies,
         favoriteMovies,
         setFavoriteMovies,
         fetchFavoriteMovies,
