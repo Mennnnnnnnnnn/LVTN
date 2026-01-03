@@ -9,7 +9,8 @@ const cinemaHallSchema = new mongoose.Schema(
         seatLayout: {
             rows: { type: [String], required: true }, // ["A", "B", "C", ...]
             seatsPerRow: { type: Number, required: true },
-            coupleSeatsRows: { type: [String], default: [] } // Dãy có ghế đôi: ["L"]
+            coupleSeatsRows: { type: [String], default: [] }, // Dãy có ghế đôi: ["L"]
+            layoutType: { type: String, default: 'default' } // 'default', 'single-column', 'two-columns', 'theater-v'
         },
         customRowSeats: { type: Object, default: {} }, // Số ghế tùy chỉnh theo dãy: { "L": 6 }
         priceMultiplier: { type: Number, default: 1 }, // VIP: 1.5, IMAX: 2

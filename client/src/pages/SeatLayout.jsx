@@ -29,15 +29,47 @@ const SeatLayout = () => {
   const { axios, getToken, user} = useAppContext();
   
   // Dynamic group rows based on hall layout
+  const layoutType = hall?.seatLayout?.layoutType || 'default';
   const groupRows = hall ? 
-    (hall.seatLayout.rows.length <= 2 ? 
-      [hall.seatLayout.rows] : 
-      hall.seatLayout.rows.reduce((acc, row, index) => {
-        const groupIndex = Math.floor(index / 2);
-        if (!acc[groupIndex]) acc[groupIndex] = [];
-        acc[groupIndex].push(row);
-        return acc;
-      }, [])
+    (layoutType === 'single-column' || layoutType === 'theater-v' ?
+      // Tất cả rows ở giữa (1 nhóm duy nhất)
+      [hall.seatLayout.rows] :
+      layoutType === 'two-columns' ?
+      // Tất cả rows chia thành 2 nhóm bằng nhau (mỗi nhóm = 1 cột)
+      (() => {
+        const rows = hall.seatLayout.rows;
+        const midPoint = Math.ceil(rows.length / 2);
+        return [
+          rows.slice(0, midPoint), // Cột trái: nửa đầu rows
+          rows.slice(midPoint)    // Cột phải: nửa sau rows
+        ];
+      })() :
+      // Default: 2 dãy đầu ở giữa, các dãy sau chia 2 cột, dãy cuối lẻ tự động ở giữa
+      (() => {
+        const rows = hall.seatLayout.rows;
+        if (rows.length <= 2) {
+          return [rows];
+        }
+        
+        // 2 dãy đầu ở giữa
+        const firstTwo = rows.slice(0, 2);
+        const remainingRows = rows.slice(2);
+        
+        // Chia các dãy còn lại thành nhóm 2 dãy
+        const groups = [];
+        for (let i = 0; i < remainingRows.length; i += 2) {
+          const group = remainingRows.slice(i, i + 2);
+          groups.push(group);
+        }
+        
+        // Nếu nhóm cuối chỉ có 1 dãy (lẻ), đưa nó vào nhóm đầu (ở giữa)
+        if (groups.length > 0 && groups[groups.length - 1].length === 1) {
+          const lastRow = groups.pop()[0];
+          firstTwo.push(lastRow);
+        }
+        
+        return [firstTwo, ...groups];
+      })()
     ) : [];
 
   const TOTAL_SEATS_PER_ROW = hall ? hall.seatLayout.seatsPerRow : 9;
@@ -371,16 +403,29 @@ const validateSeatRules = (selectedSeats) => {
         </div>
         
         <div className='flex flex-col items-center mt-10 text-xs text-gray-300'>
-          <div className='grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6'>
-            {groupRows[0].map(row => renderSeats(row))}
-          </div>
-          <div className='grid grid-cols-2 gap-11'>
-            {groupRows.slice(1).map((group, idx)=>(
-              <div key={idx}>
-                {group.map(row => renderSeats(row))}
+          {layoutType === 'two-columns' ? (
+            // Render 2 cột cạnh nhau
+            <div className='grid grid-cols-2 gap-11'>
+              {groupRows.map((group, idx) => (
+                <div key={idx}>
+                  {group.map(row => renderSeats(row))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className='grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6'>
+                {groupRows[0]?.map(row => renderSeats(row))}
               </div>
-            ))}
-          </div>
+              <div className='grid grid-cols-2 gap-11'>
+                {groupRows.slice(1).map((group, idx)=>(
+                  <div key={idx}>
+                    {group.map(row => renderSeats(row))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         
         {/* Hiển thị tổng tiền */}

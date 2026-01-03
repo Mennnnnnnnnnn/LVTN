@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, AlertCircle, Eye, Edit } from 'lucide-react';
 import { assets } from '../../assets/assets';
+import { seatLayoutTemplates } from '../../lib/seatLayoutTemplates';
 
 const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
   // State cho layout design
@@ -11,6 +12,8 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
   const [brokenSeats, setBrokenSeats] = useState([]);
   const [selectedSeatForBreak, setSelectedSeatForBreak] = useState(null);
   const [viewMode, setViewMode] = useState('design'); // 'design' or 'preview'
+  const [selectedTemplate, setSelectedTemplate] = useState('default'); // Template được chọn
+  const [layoutType, setLayoutType] = useState('default'); // Layout type: 'default', 'single-column', 'two-columns', 'theater-v'
 
   // Load existing data nếu đang edit
   useEffect(() => {
@@ -20,8 +23,35 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
       setCustomRowSeats(existingHall.customRowSeats || {});
       setCoupleSeatsRows(existingHall.seatLayout?.coupleSeatsRows || []);
       setBrokenSeats(existingHall.brokenSeats || []);
+      setLayoutType(existingHall.seatLayout?.layoutType || 'default');
+      setSelectedTemplate(''); // Không chọn template khi đang edit
+    } else {
+      // Khi tạo mới, set template mặc định
+      setSelectedTemplate('default');
+      setLayoutType('default');
     }
   }, [existingHall]);
+
+  // Hàm xử lý khi chọn template
+  const handleTemplateChange = (templateId) => {
+    if (!templateId || templateId === '') {
+      setSelectedTemplate('');
+      setLayoutType('default');
+      return;
+    }
+
+    const template = seatLayoutTemplates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(templateId);
+      setRows([...template.rows]);
+      setSeatsPerRow(template.seatsPerRow);
+      setCustomRowSeats({ ...template.customRowSeats });
+      setCoupleSeatsRows([...template.coupleSeatsRows]);
+      setLayoutType(template.layoutType || 'default');
+      // Giữ nguyên brokenSeats khi đổi template (có thể xóa nếu muốn reset)
+      // setBrokenSeats([]);
+    }
+  };
 
   // Update parent khi có thay đổi
   useEffect(() => {
@@ -36,7 +66,8 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
       seatLayout: {
         rows,
         seatsPerRow: typeof seatsPerRow === 'string' && seatsPerRow === '' ? 9 : seatsPerRow,
-        coupleSeatsRows
+        coupleSeatsRows,
+        layoutType
       },
       customRowSeats,
       brokenSeats,
@@ -217,15 +248,44 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
 
   // Render preview mode (như user sẽ thấy)
   const renderPreviewMode = () => {
-    // Group rows giống SeatLayout
-    const groupRows = rows.length <= 2 ? 
-      [rows] : 
-      rows.reduce((acc, row, index) => {
-        const groupIndex = Math.floor(index / 2);
-        if (!acc[groupIndex]) acc[groupIndex] = [];
-        acc[groupIndex].push(row);
-        return acc;
-      }, []);
+    // Group rows giống SeatLayout dựa trên layoutType
+    const groupRows = layoutType === 'single-column' || layoutType === 'theater-v' ?
+      // Tất cả rows ở giữa (1 nhóm duy nhất)
+      [rows] :
+      layoutType === 'two-columns' ?
+      // Tất cả rows chia thành 2 nhóm bằng nhau (mỗi nhóm = 1 cột)
+      (() => {
+        const midPoint = Math.ceil(rows.length / 2);
+        return [
+          rows.slice(0, midPoint), // Cột trái: nửa đầu rows
+          rows.slice(midPoint)    // Cột phải: nửa sau rows
+        ];
+      })() :
+      // Default: 2 dãy đầu ở giữa, các dãy sau chia 2 cột, dãy cuối lẻ tự động ở giữa
+      (() => {
+        if (rows.length <= 2) {
+          return [rows];
+        }
+        
+        // 2 dãy đầu ở giữa
+        const firstTwo = rows.slice(0, 2);
+        const remainingRows = rows.slice(2);
+        
+        // Chia các dãy còn lại thành nhóm 2 dãy
+        const groups = [];
+        for (let i = 0; i < remainingRows.length; i += 2) {
+          const group = remainingRows.slice(i, i + 2);
+          groups.push(group);
+        }
+        
+        // Nếu nhóm cuối chỉ có 1 dãy (lẻ), đưa nó vào nhóm đầu (ở giữa)
+        if (groups.length > 0 && groups[groups.length - 1].length === 1) {
+          const lastRow = groups.pop()[0];
+          firstTwo.push(lastRow);
+        }
+        
+        return [firstTwo, ...groups];
+      })();
 
     const renderPreviewSeats = (row) => {
       const rowSeatCount = customRowSeats[row] || seatsPerRow;
@@ -302,16 +362,29 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
 
           {/* Layout ghế */}
           <div className="flex flex-col items-center text-xs text-gray-300">
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6">
-              {groupRows[0]?.map(row => renderPreviewSeats(row))}
-            </div>
-            <div className="grid grid-cols-2 gap-11">
-              {groupRows.slice(1).map((group, idx)=>(
-                <div key={idx}>
-                  {group.map(row => renderPreviewSeats(row))}
+            {layoutType === 'two-columns' ? (
+              // Render 2 cột cạnh nhau
+              <div className="grid grid-cols-2 gap-11">
+                {groupRows.map((group, idx) => (
+                  <div key={idx}>
+                    {group.map(row => renderPreviewSeats(row))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6">
+                  {groupRows[0]?.map(row => renderPreviewSeats(row))}
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-2 gap-11">
+                  {groupRows.slice(1).map((group, idx)=>(
+                    <div key={idx}>
+                      {group.map(row => renderPreviewSeats(row))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Thông tin */}
@@ -366,6 +439,30 @@ const SeatLayoutDesigner = ({ value, onChange, existingHall }) => {
           </div>
         </div>
       </div>
+
+      {/* Template Selector - Chỉ hiển thị khi tạo mới (không phải edit) */}
+      {!existingHall && (
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-4">
+          <label className="block text-sm font-semibold mb-2 text-gray-700">
+            Chọn template layout
+          </label>
+          <select
+            value={selectedTemplate}
+            onChange={(e) => handleTemplateChange(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white"
+          >
+            <option value="">-- Tùy chỉnh từ đầu --</option>
+            {seatLayoutTemplates.map(template => (
+              <option key={template.id} value={template.id}>
+                {template.name} - {template.description}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-2">
+            💡 Chọn template để tự động load layout, sau đó bạn vẫn có thể chỉnh sửa số dãy và số ghế
+          </p>
+        </div>
+      )}
 
       {/* Show preview hoặc design mode */}
       {viewMode === 'preview' ? (
