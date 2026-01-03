@@ -9,7 +9,10 @@ const Footer = () => {
       <div className="flex flex-col md:flex-row justify-between w-full gap-10 border-b border-gray-500 pb-14">
         {/* Company Info */}
         <div className="md:max-w-96">
-          <Link to="/">
+          <Link 
+            to="/" 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
             <img className="w-36 h-auto cursor-pointer" src={assets.logo} alt="logo" />
           </Link>
           <p className="mt-6 text-sm">
@@ -75,6 +78,7 @@ const Footer = () => {
               <li>
                 <Link 
                   to="/about" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   className="hover:text-white transition-colors"
                 >
                   Về chúng tôi
@@ -88,27 +92,47 @@ const Footer = () => {
             <h2 className="font-semibold mb-5">Hỗ trợ</h2>
             <ul className="text-sm space-y-2">
               <li>
-                <Link to="/faq" className="hover:text-white transition-colors">
+                <Link 
+                  to="/faq" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="hover:text-white transition-colors"
+                >
                   Câu hỏi thường gặp
                 </Link>
               </li>
               <li>
-                <Link to="/booking-guide" className="hover:text-white transition-colors">
+                <Link 
+                  to="/booking-guide" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="hover:text-white transition-colors"
+                >
                   Hướng dẫn đặt vé
                 </Link>
               </li>
               <li>
-                <Link to="/terms-of-service" className="hover:text-white transition-colors">
+                <Link 
+                  to="/terms-of-service" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="hover:text-white transition-colors"
+                >
                   Điều khoản sử dụng
                 </Link>
               </li>
               <li>
-                <Link to="/privacy-policy" className="hover:text-white transition-colors">
+                <Link 
+                  to="/privacy-policy" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="hover:text-white transition-colors"
+                >
                   Chính sách bảo mật
                 </Link>
               </li>
               <li>
-                <Link to="/refund-policy" className="hover:text-white transition-colors">
+                <Link 
+                  to="/refund-policy" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="hover:text-white transition-colors"
+                >
                   Chính sách hoàn vé
                 </Link>
               </li>
