@@ -2,6 +2,7 @@
 import { inngest } from "../inngest/index.js";
 import Booking from "../models/Booking.js";
 import Show from "../models/Show.js";
+import Promotion from "../models/Promotion.js";
 import stripe from 'stripe';
 
 
@@ -14,7 +15,7 @@ const checkSeatsAvailability = async (showId, selectedSeats) => {
         }
 
         const occupiedSeats = showData.occupiedSeats;
-        
+
         const isAnySeatTaken = selectedSeats.some(seat => occupiedSeats[seat]);
         return !isAnySeatTaken;
     } catch (error) {
@@ -23,65 +24,122 @@ const checkSeatsAvailability = async (showId, selectedSeats) => {
     }
 }
 
+// Hàm lấy khuyến mãi tốt nhất hiện tại
+const getBestActivePromotion = async () => {
+    try {
+        const now = new Date();
+        const today = now.getDay();
+
+        const promotions = await Promotion.find({
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            $or: [
+                { maxUsage: 0 },
+                { $expr: { $lt: ['$usageCount', '$maxUsage'] } }
+            ]
+        });
+
+        const applicablePromotions = promotions.filter(promo => {
+            if (promo.type === 'weekly' && promo.applicableDays.length > 0) {
+                return promo.applicableDays.includes(today);
+            }
+            return true;
+        });
+
+        if (applicablePromotions.length > 0) {
+            return applicablePromotions.reduce((best, current) =>
+                current.discountPercent > best.discountPercent ? current : best
+            );
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting promotion:', error);
+        return null;
+    }
+};
+
 export const createBooking = async (req, res) => {
     try {
-        const {userId} = req.auth();
-        const {showId, selectedSeats} = req.body;
-        const {origin} = req.headers;
+        const { userId } = req.auth();
+        const { showId, selectedSeats } = req.body;
+        const { origin } = req.headers;
         //kiểm tra xem chỗ ngồi có sẵn cho chương trình đã chọn không
         const isAvailable = await checkSeatsAvailability(showId, selectedSeats);
 
-        if(!isAvailable){
-            return res.json({success: false, message: 'Một hoặc nhiều ghế đã chọn đã được đặt. Vui lòng chọn ghế khác.'});
+        if (!isAvailable) {
+            return res.json({ success: false, message: 'Một hoặc nhiều ghế đã chọn đã được đặt. Vui lòng chọn ghế khác.' });
         }
         // Get the show details
         const showData = await Show.findById(showId).populate('movie').populate('hall');
-        
+
         // ✅ Check if hall is active
-        if(!showData.hall || showData.hall.status !== 'active'){
+        if (!showData.hall || showData.hall.status !== 'active') {
             return res.json({
-                success: false, 
-                message: showData.hall?.status === 'maintenance' 
+                success: false,
+                message: showData.hall?.status === 'maintenance'
                     ? `Phòng chiếu đang bảo trì. Lý do: ${showData.hall.maintenanceNote || 'Đang bảo trì'}`
                     : 'Phòng chiếu không khả dụng'
             });
         }
-        
+
         // Constants phụ thu
         const COUPLE_SEAT_SURCHARGE = 10000;
         const EVENING_SURCHARGE = 10000;
-        
+
         // Tính giá base với priceMultiplier
         const basePrice = showData.showPrice * showData.hall.priceMultiplier;
-        
+
         // Check suất tối (sau 17h)
         const showHour = showData.showDateTime.getHours();
         const isEveningShow = showHour >= 17;
-        
+
         // Tính tổng tiền cho từng ghế
         let totalAmount = 0;
         selectedSeats.forEach(seat => {
             let seatPrice = basePrice;
-            
+
             // Phụ thu ghế đôi
             const row = seat[0];
-            if(showData.hall.seatLayout?.coupleSeatsRows?.includes(row)) {
+            if (showData.hall.seatLayout?.coupleSeatsRows?.includes(row)) {
                 seatPrice += COUPLE_SEAT_SURCHARGE;
             }
-            
+
             // Phụ thu suất tối
-            if(isEveningShow) {
+            if (isEveningShow) {
                 seatPrice += EVENING_SURCHARGE;
             }
-            
+
             totalAmount += seatPrice;
         });
-        
+
+        // Lưu giá gốc
+        const originalAmount = totalAmount;
+
+        // Kiểm tra và áp dụng khuyến mãi
+        const activePromotion = await getBestActivePromotion();
+        let discountAmount = 0;
+        let promotionId = null;
+
+        if (activePromotion) {
+            discountAmount = Math.floor(totalAmount * activePromotion.discountPercent / 100);
+            totalAmount = totalAmount - discountAmount;
+            promotionId = activePromotion._id;
+
+            // Tăng số lần sử dụng của promotion
+            await Promotion.findByIdAndUpdate(activePromotion._id, {
+                $inc: { usageCount: 1 }
+            });
+        }
+
         //create a new booking
         const booking = await Booking.create({
             user: userId,
             show: showId,
             amount: totalAmount,
+            originalAmount: originalAmount,
+            promotionApplied: promotionId,
+            discountAmount: discountAmount,
             bookedSeats: selectedSeats
         });
 
@@ -96,10 +154,14 @@ export const createBooking = async (req, res) => {
 
         //tạo mục hàng cho stripe
         const line_items = [
-            {price_data: {
+            {
+                price_data: {
                     currency: 'vnd',
                     product_data: {
-                        name: showData.movie.title},
+                        name: activePromotion
+                            ? `${showData.movie.title} (Giảm ${activePromotion.discountPercent}% - ${activePromotion.name})`
+                            : showData.movie.title
+                    },
                     unit_amount: Math.floor(booking.amount),
                 },
                 quantity: 1,
@@ -128,23 +190,23 @@ export const createBooking = async (req, res) => {
             },
         });
 
-        res.json({success: true, url: session.url});
+        res.json({ success: true, url: session.url });
 
     } catch (error) {
         console.error(error.message);
-        res.json({success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
 
 export const getOccupiedSeats = async (req, res) => {
     try {
-        const {showId} = req.params;
+        const { showId } = req.params;
         const showData = await Show.findById(showId);
         const occupiedSeats = Object.keys(showData.occupiedSeats);
-        res.json({success: true, occupiedSeats});
+        res.json({ success: true, occupiedSeats });
     } catch (error) {
         console.error(error.message);
-        res.json({success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
 
@@ -198,7 +260,7 @@ export const cancelBooking = async (req, res) => {
         // Kiểm tra thời gian
         const now = new Date();
         const showTime = new Date(booking.show.showDateTime);
-        
+
         if (showTime <= now) {
             return res.json({ success: false, message: 'Không thể hủy vé sau khi suất chiếu đã bắt đầu' });
         }
@@ -214,15 +276,15 @@ export const cancelBooking = async (req, res) => {
         // Trường hợp 1: Vé CHƯA thanh toán - Xóa luôn, không gửi email
         if (!booking.ispaid) {
             await Booking.findByIdAndDelete(booking._id);
-            return res.json({ 
-                success: true, 
+            return res.json({
+                success: true,
                 message: 'Hủy vé thành công'
             });
         }
 
         // Trường hợp 2: Vé ĐÃ thanh toán - Tính hoàn tiền, gửi email
         const refundPercentage = calculateRefundPercentage(booking.show.showDateTime);
-        
+
         if (refundPercentage === 0) {
             // Hoàn lại ghế vì không được phép hủy
             booking.bookedSeats.forEach(seat => {
@@ -230,10 +292,10 @@ export const cancelBooking = async (req, res) => {
             });
             showData.markModified('occupiedSeats');
             await showData.save();
-            
-            return res.json({ 
-                success: false, 
-                message: 'Không thể hủy vé trong vòng 6 giờ trước suất chiếu' 
+
+            return res.json({
+                success: false,
+                message: 'Không thể hủy vé trong vòng 6 giờ trước suất chiếu'
             });
         }
 
@@ -254,8 +316,8 @@ export const cancelBooking = async (req, res) => {
             },
         });
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             message: `Hủy vé thành công. Bạn được hoàn ${refundPercentage}% (${refundAmount.toLocaleString('vi-VN')} ₫)`,
             refundPercentage,
             refundAmount

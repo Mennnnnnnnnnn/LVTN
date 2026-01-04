@@ -11,41 +11,56 @@ export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isAdminLoading, setIsAdminLoading] = useState(true);
     const [shows, setShows] = useState([]);
     const [upcomingMovies, setUpcomingMovies] = useState([]);
     const [favoriteMovies, setFavoriteMovies] = useState([]);
 
     const image_base_url = import.meta.env.VITE_TMDB_IMAGE_BASE_URL;
 
-    const {user} = useUser();
-    const {getToken} = useAuth();
+    const { user } = useUser();
+    const { getToken } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
 
     const fetchIsAdmin = async () => {
+        setIsAdminLoading(true);
         try {
-            const {data} = await axios.get('/api/admin/is-admin', {
+            const token = await getToken();
+            if (!token) {
+                setIsAdmin(false);
+                setIsAdminLoading(false);
+                return;
+            }
+            const { data } = await axios.get('/api/admin/is-admin', {
                 headers: {
-                    Authorization: `Bearer ${await getToken()}`
+                    Authorization: `Bearer ${token}`
                 }
             });
-            setIsAdmin(data.isAdmin);
 
-            if(!data.isAdmin && location.pathname.startsWith('/admin')) {
-                navigate('/');
-                toast.error('you are not authorized to access admin dashboard');
+            if (data.success && data.isAdmin) {
+                setIsAdmin(true);
+            } else {
+                setIsAdmin(false);
+                if (location.pathname.startsWith('/admin')) {
+                    navigate('/');
+                    toast.error('Bạn không có quyền truy cập trang quản trị');
+                }
             }
         } catch (error) {
             console.error(error);
+            setIsAdmin(false);
+        } finally {
+            setIsAdminLoading(false);
         }
     }
 
     const fetchShows = async () => {
         try {
-            const {data} = await axios.get('/api/show/all');
-            if(data.success){
+            const { data } = await axios.get('/api/show/all');
+            if (data.success) {
                 setShows(data.shows);
-            }else{
+            } else {
                 toast.error(data.message);
             }
         } catch (error) {
@@ -55,15 +70,15 @@ export const AppProvider = ({ children }) => {
 
     const fetchUpcomingMovies = async () => {
         try {
-            const {data} = await axios.get('/api/show/upcoming');
-            if(data.success){
+            const { data } = await axios.get('/api/show/upcoming');
+            if (data.success) {
                 // Normalize data: đổi id thành _id để tương thích với MovieCard
                 const normalizedMovies = data.movies.map(movie => ({
                     ...movie,
                     _id: movie.id
                 }));
                 setUpcomingMovies(normalizedMovies);
-            }else{
+            } else {
                 toast.error(data.message);
             }
         } catch (error) {
@@ -73,14 +88,14 @@ export const AppProvider = ({ children }) => {
 
     const fetchFavoriteMovies = async () => {
         try {
-            const {data} = await axios.get('/api/user/favorites', {
+            const { data } = await axios.get('/api/user/favorites', {
                 headers: {
                     Authorization: `Bearer ${await getToken()}`
                 }
             });
-            if(data.success){
+            if (data.success) {
                 setFavoriteMovies(data.movies);
-            }else{
+            } else {
                 toast.error(data.message);
             }
         } catch (error) {
@@ -91,18 +106,22 @@ export const AppProvider = ({ children }) => {
     useEffect(() => {
         fetchShows()
         fetchUpcomingMovies()
-    },[]);
-    
+    }, []);
+
     useEffect(() => {
-        if(user){
+        if (user) {
             fetchIsAdmin();
             fetchFavoriteMovies();
+        } else {
+            setIsAdmin(false);
+            setIsAdminLoading(false);
         }
     }, [user]);
     const value = {
         axios,
         fetchIsAdmin,
         isAdmin,
+        isAdminLoading,
         shows,
         upcomingMovies,
         favoriteMovies,
