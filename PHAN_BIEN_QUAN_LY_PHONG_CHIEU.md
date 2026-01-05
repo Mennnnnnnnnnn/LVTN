@@ -1,4 +1,4 @@
-# 🎬 TÀI LIỆU PHẢN BIỆN: QUẢN LÝ PHÒNG CHIẾU
+ # 🎬 TÀI LIỆU PHẢN BIỆN: QUẢN LÝ PHÒNG CHIẾU
 
 ## 📋 MỤC LỤC
 1. [Tổng quan nghiệp vụ](#1-tổng-quan-nghiệp-vụ)

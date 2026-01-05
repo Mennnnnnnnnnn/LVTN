@@ -239,6 +239,68 @@ export const cancelBooking = async (req, res) => {
 
         const refundAmount = Math.floor((booking.amount * refundPercentage) / 100);
 
+        // Để hoàn tiền thực sự, cần:
+        // 1. Lưu paymentIntentId vào Booking model khi thanh toán thành công (stripeWebhooks.js)
+        // 2. Gọi Stripe Refund API với paymentIntentId
+        // 
+        // LƯU Ý: Hiện tại đang dùng TEST MODE nên không thể hoàn tiền thực sự
+        // Chỉ có thể hoàn tiền khi dùng PRODUCTION keys và có paymentIntentId
+        //
+        // ========================================
+        
+        // TODO: Uncomment code sau khi thêm paymentIntentId vào Booking model và chuyển sang PRODUCTION
+        /*
+        try {
+            // Kiểm tra xem có paymentIntentId không (chỉ refund nếu đã thanh toán qua Stripe)
+            if (booking.paymentIntentId) {
+                const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+                
+                // Tạo refund trên Stripe
+                // API: https://stripe.com/docs/api/refunds/create
+                const refund = await stripeInstance.refunds.create({
+                    payment_intent: booking.paymentIntentId,  // PaymentIntent ID từ khi thanh toán
+                    amount: refundAmount * 100,  // Stripe dùng cent, nên nhân 100 (VND: refundAmount * 100)
+                    // metadata: {  // Optional: Thêm metadata để tracking
+                    //     bookingId: booking._id.toString(),
+                    //     refundPercentage: refundPercentage.toString()
+                    // },
+                    // reason: 'requested_by_customer'  // Lý do: user yêu cầu hủy
+                });
+                
+                // Lưu refundId để tracking (optional - có thể thêm field refundId vào Booking model)
+                // booking.refundId = refund.id;
+                
+                console.log(`✅ Stripe refund created: ${refund.id} - Amount: ${refundAmount} VNĐ`);
+                
+                // Lưu ý: Stripe sẽ tự động hoàn tiền về thẻ/card của user
+                // Thời gian: Thường 5-10 ngày làm việc (tùy ngân hàng)
+            } else {
+                // Nếu không có paymentIntentId (thanh toán ngoại tuyến, hoặc test)
+                console.log('⚠️ No paymentIntentId - Skip Stripe refund (test mode or offline payment)');
+            }
+        } catch (stripeError) {
+            // Xử lý lỗi từ Stripe
+            console.error('❌ Stripe refund error:', stripeError.message);
+            
+            // Nếu refund thất bại, có 2 options:
+            // Option 1: Vẫn hủy booking nhưng không refund (chờ refund thủ công)
+            // Option 2: Rollback và không hủy booking (báo lỗi cho user)
+            // 
+            // Tùy chọn: Nếu refund thất bại, bạn có thể:
+            // - Log lỗi và thông báo cho admin
+            // - Hoặc rollback: không hủy booking, return error
+            // 
+            // return res.json({ 
+            //     success: false, 
+            //     message: 'Không thể hoàn tiền. Vui lòng liên hệ hỗ trợ.' 
+            // });
+        }
+        */
+        
+        // ========================================
+        // END: HOÀN TIỀN THỰC SỰ
+        // ========================================
+
         // Cập nhật booking
         booking.status = 'cancelled';
         booking.cancelledAt = new Date();

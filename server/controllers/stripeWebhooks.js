@@ -25,6 +25,24 @@ export const stripeWebhooks = async (request, response) => {
                 const session = sessionList.data[0];
                 const {bookingId} = session.metadata;
 
+                // ========================================
+                // 💰 LƯU PAYMENTINTENTID ĐỂ REFUND SAU NÀY
+                // ========================================
+                // 
+                // Cần lưu paymentIntentId vào Booking để có thể refund khi hủy vé
+                // Lưu ý: Cần thêm field paymentIntentId vào Booking model trước
+                //
+                // ========================================
+                // TODO: Uncomment sau khi thêm paymentIntentId vào Booking model
+                /*
+                await Booking.findByIdAndUpdate(bookingId, {
+                    ispaid: true,
+                    paymentLink: "",
+                    paymentIntentId: paymentIntent.id  // ← Lưu PaymentIntent ID để refund sau này
+                })
+                */
+                
+                // Code hiện tại (chưa lưu paymentIntentId):
                 await Booking.findByIdAndUpdate(bookingId, {
                     ispaid: true,
                     paymentLink: ""

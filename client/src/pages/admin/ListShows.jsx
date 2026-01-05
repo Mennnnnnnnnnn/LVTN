@@ -6,7 +6,8 @@ import { dateFormat } from '../../lib/dateFormat';
 import { vndFormat } from '../../lib/currencyFormat';
 import isoTimeFormat from '../../lib/isoTimeFormat';
 import { useAppContext } from '../../context/AppContext';
-import { Filter } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ListShows = () => {
 
@@ -38,6 +39,31 @@ const ListShows = () => {
       getAllShows();
     }
   },[user]);
+
+  const handleCancelShow = async (showId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy chương trình này?')) {
+      return;
+    }
+
+    try {
+      const {data} = await axios.delete(`/api/admin/cancel-show/${showId}`, {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`
+        }
+      });
+
+      if (data.success) {
+        toast.success(data.message || 'Hủy chương trình thành công');
+        // Refresh the list
+        getAllShows();
+      } else {
+        toast.error(data.message || 'Không thể hủy chương trình');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi hủy chương trình');
+    }
+  };
 
   // Get unique movies and halls for filter dropdowns
   const uniqueMovies = useMemo(() => {
@@ -128,12 +154,13 @@ const ListShows = () => {
               <th className="p-2 font-medium">Thời gian hiển thị</th>
               <th className="p-2 font-medium">Tổng số lượng đặt chỗ</th>
               <th className="p-2 font-medium">Thu nhập</th>
+              <th className="p-2 font-medium">Thao tác</th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
             {filteredShows.length === 0 ? (
               <tr>
-                <td colSpan="5" className="p-8 text-center text-gray-400">
+                <td colSpan="6" className="p-8 text-center text-gray-400">
                   Không tìm thấy suất chiếu nào
                 </td>
               </tr>
@@ -157,6 +184,16 @@ const ListShows = () => {
                   </td>
                   <td className="p-2">{Object.keys(show.occupiedSeats || {}).length}</td>
                   <td className="p-2">{vndFormat(Object.keys(show.occupiedSeats || {}).length * (show.showPrice || 0))}</td>
+                  <td className="p-2">
+                    <button
+                      onClick={() => handleCancelShow(show._id)}
+                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors flex items-center gap-1.5 text-sm"
+                      title="Hủy chương trình"
+                    >
+                      <X className="w-4 h-4" />
+                      <span className="max-md:hidden">Hủy</span>
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
