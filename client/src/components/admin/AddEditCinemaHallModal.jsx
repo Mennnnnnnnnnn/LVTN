@@ -115,7 +115,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
             <div className="p-2 bg-primary/20 rounded-lg">
               <Building2 className="w-6 h-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold text-gray-900">
               {editHall ? 'Chỉnh sửa phòng chiếu' : 'Thêm phòng chiếu mới'}
             </h2>
           </div>
@@ -123,7 +123,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 text-gray-900" />
           </button>
         </div>
 
@@ -133,7 +133,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
             {/* Thông tin cơ bản */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
                   Tên phòng chiếu <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -148,7 +148,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
                   Số phòng <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -164,7 +164,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
                   Loại phòng <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -181,7 +181,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
                   Hệ số giá (Price Multiplier)
                 </label>
                 <input
@@ -194,13 +194,13 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
                   max="5"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white"
                 />
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-gray-700 mt-1">
                   Standard: 1.0, VIP: 1.5, IMAX: 2.0
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                <label className="block text-sm font-semibold mb-2 text-gray-900">
                   Trạng thái
                 </label>
                 <select
@@ -216,7 +216,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
 
               {formData.status === 'maintenance' && (
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                  <label className="block text-sm font-semibold mb-2 text-gray-900">
                     Ghi chú bảo trì
                   </label>
                   <input
@@ -246,7 +246,7 @@ const AddEditCinemaHallModal = ({ isOpen, onClose, onSave, editHall }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
+              className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition text-gray-900"
             >
               Hủy
             </button>

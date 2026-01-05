@@ -53,7 +53,9 @@ const AddShows = () => {
     try {
       const {data} = await axios.get('/api/hall/all');
       if(data.success){
-        setCinemaHalls(data.halls);
+        // Filter out inactive halls
+        const activeHalls = data.halls.filter(hall => hall.status !== 'inactive');
+        setCinemaHalls(activeHalls);
       }
     } catch (error) {
       console.error('Error fetching cinema halls:',error)

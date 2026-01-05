@@ -174,6 +174,10 @@ export const addShow = async (req, res) => {
             return res.json({success: false, message: 'Phòng chiếu đang bảo trì'});
         }
 
+        if (hall.status === 'inactive') {
+            return res.json({success: false, message: 'Phòng chiếu đã bị vô hiệu hóa'});
+        }
+
         let movie = await Movie.findById(movieId);
         let isNewMovie = false; // Track nếu đây là movie mới
         let movieReleaseDate = null;

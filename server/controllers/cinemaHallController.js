@@ -58,6 +58,12 @@ export const createHall = async (req, res) => {
             return res.json({ success: false, message: 'Số phòng chiếu đã tồn tại' });
         }
 
+        // Check if hall name already exists
+        const existingHallByName = await CinemaHall.findOne({ name });
+        if (existingHallByName) {
+            return res.json({ success: false, message: 'Tên phòng chiếu đã tồn tại' });
+        }
+
         const newHall = new CinemaHall({
             name,
             hallNumber,
@@ -92,6 +98,17 @@ export const updateHall = async (req, res) => {
             });
             if (existingHall) {
                 return res.json({ success: false, message: 'Số phòng chiếu đã tồn tại' });
+            }
+        }
+
+        // If updating hall name, check if it's already taken
+        if (updates.name) {
+            const existingHallByName = await CinemaHall.findOne({ 
+                name: updates.name,
+                _id: { $ne: hallId }
+            });
+            if (existingHallByName) {
+                return res.json({ success: false, message: 'Tên phòng chiếu đã tồn tại' });
             }
         }
 
