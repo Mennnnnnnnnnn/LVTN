@@ -5,7 +5,8 @@ import Title from '../../components/admin/Title';
 import { dateFormat } from '../../lib/dateFormat';
 import { vndFormat } from '../../lib/currencyFormat';
 import { useAppContext } from '../../context/AppContext';
-import { Search } from 'lucide-react';
+import { Search, Info, X } from 'lucide-react';
+import { formatDateTime } from '../../lib/datetimeFormat';
 
 const ListBookings = () => {
 
@@ -21,6 +22,10 @@ const ListBookings = () => {
   const [movieFilter, setMovieFilter] = useState('all');
   const [hallFilter, setHallFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal state for booking details
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const getAllBookings = async ()=>{
     try {
       const {data} = await axios.get('/api/admin/all-bookings', {
@@ -107,6 +112,35 @@ const ListBookings = () => {
       return true;
     });
   }, [bookings, paymentFilter, statusFilter, dateRangeFilter, movieFilter, hallFilter, searchQuery]);
+
+  // Format time duration in a human-readable way
+  const formatTimeDuration = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ`;
+    } else if (hours > 0) {
+      return `${hours} giờ ${minutes} phút`;
+    } else {
+      return `${minutes} phút`;
+    }
+  };
+
+
+  const handleInfoClick = (booking) => {
+    setSelectedBooking(booking);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedBooking(null);
+  };
 
   return !isLoading ? (
     <>
@@ -259,15 +293,24 @@ const ListBookings = () => {
                       )}
                     </td>
                     <td className="p-2">
-                      {item.status === 'cancelled' ? (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
-                          Đã hủy
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                          Hoạt động
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {item.status === 'cancelled' ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                            Đã hủy
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            Hoạt động
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleInfoClick(item)}
+                          className="p-1.5 rounded-full hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                          title="Xem thông tin chi tiết"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
               ))}
@@ -296,6 +339,121 @@ const ListBookings = () => {
               Xóa bộ lọc
             </button>
           )}
+        </div>
+      )}
+
+      {/* Booking Details Modal */}
+      {isModalOpen && selectedBooking && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Thông tin chi tiết đặt chỗ</h2>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Booking Time */}
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Thời gian đặt vé</h3>
+                <p className="text-white text-lg">
+                  {selectedBooking.createdAt ? formatDateTime(selectedBooking.createdAt) : 'N/A'}
+                </p>
+              </div>
+
+              {/* Show Time */}
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-400 mb-2">Giờ chiếu suất chiếu</h3>
+                <p className="text-white text-lg">
+                  {selectedBooking.show?.showDateTime ? formatDateTime(selectedBooking.show.showDateTime) : 'N/A'}
+                </p>
+              </div>
+
+              {/* Cancellation Info (if cancelled) */}
+              {selectedBooking.status === 'cancelled' && selectedBooking.cancelledAt && (
+                <>
+                  {selectedBooking.show?.showDateTime && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-red-400 mb-3">Thống kê hủy</h3>
+                      {(() => {
+                        const showDateTime = new Date(selectedBooking.show.showDateTime);
+                        const cancelledAt = new Date(selectedBooking.cancelledAt);
+                        
+                        // Time from cancellation to show
+                        const timeFromCancellationToShow = showDateTime - cancelledAt;
+                        const formattedTime = formatTimeDuration(timeFromCancellationToShow);
+                        
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-gray-400 text-sm mb-1">Thời gian người dùng hủy:</p>
+                              <p className="text-white text-lg font-medium">
+                                {formatDateTime(selectedBooking.cancelledAt)}
+                              </p>
+                            </div>
+                            <div className="pt-2 border-t border-red-500/20">
+                              <p className="text-gray-400 text-sm mb-1">Thời gian từ khi hủy đến khi suất chiếu bắt đầu:</p>
+                              <p className="text-white text-lg font-medium text-red-400">
+                                {formattedTime}
+                              </p>
+                            </div>
+                            {selectedBooking.refundPercentage !== undefined && selectedBooking.refundPercentage !== null && (
+                              <div className="pt-2 border-t border-red-500/20">
+                                <p className="text-gray-400 text-sm mb-1">Phần trăm được hoàn tiền theo chính sách:</p>
+                                <p className="text-white text-lg font-medium text-red-400">
+                                  {selectedBooking.refundPercentage}%
+                                </p>
+                                {selectedBooking.refundAmount && (
+                                  <p className="text-gray-400 text-sm mt-1">
+                                    Số tiền hoàn: {vndFormat(selectedBooking.refundAmount)}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Additional Booking Info */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-2">Khách hàng</h3>
+                  <p className="text-white">{selectedBooking.user?.name || selectedBooking.user || 'N/A'}</p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-2">Phim</h3>
+                  <p className="text-white">{selectedBooking.show?.movie?.title || 'N/A'}</p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-2">Phòng chiếu</h3>
+                  <p className="text-white">{selectedBooking.show?.hall?.name || 'N/A'}</p>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-2">Số lượng vé</h3>
+                  <p className="text-white">
+                    {selectedBooking.bookedSeats ? Object.keys(selectedBooking.bookedSeats).length : 0} vé
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 px-6 py-4 flex justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 bg-primary hover:bg-primary-dull transition rounded-md text-sm font-medium"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
