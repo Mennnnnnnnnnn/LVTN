@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { dummyShowsData } from '../../assets/assets';
 import Loading from '../../components/Loading';
-import { CheckIcon, DeleteIcon, StarIcon } from 'lucide-react';
+import { CheckIcon, DeleteIcon, StarIcon, Search } from 'lucide-react';
 import Title from '../../components/admin/Title';
 import { kConverter } from '../../lib/kConverter';
 import { useAppContext } from '../../context/AppContext';
@@ -20,6 +20,7 @@ const AddShows = () => {
   const [dateTimeSelection , setDateTimeSelection] = useState({});
   const [dateTimeInput, setDateTimeInput] = useState ("");
   const [showPrice , setShowPrice] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [addingShow, setAddingShow] = useState(false);
 
@@ -53,7 +54,9 @@ const AddShows = () => {
     try {
       const {data} = await axios.get('/api/hall/all');
       if(data.success){
-        setCinemaHalls(data.halls);
+        // Filter out inactive halls
+        const activeHalls = data.halls.filter(hall => hall.status !== 'inactive');
+        setCinemaHalls(activeHalls);
       }
     } catch (error) {
       console.error('Error fetching cinema halls:',error)
@@ -152,6 +155,18 @@ const AddShows = () => {
   // Get current movies list based on active tab
   const currentMovies = activeTab === 'now-playing' ? nowPlayingMovies : upcomingMovies;
 
+  // Filter movies based on search query
+  const filteredMovies = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return currentMovies;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return currentMovies.filter(movie => 
+      movie.title.toLowerCase().includes(query) ||
+      (movie.original_title && movie.original_title.toLowerCase().includes(query))
+    );
+  }, [currentMovies, searchQuery]);
+
   return (nowPlayingMovies.length > 0 || upcomingMovies.length > 0) ?  (
     <>
       <Title text1=" Thêm " text2="Chương trình" />
@@ -162,6 +177,7 @@ const AddShows = () => {
           onClick={() => {
             setActiveTab('now-playing');
             setSelectedMovie(null);
+            setSearchQuery("");
           }}
           className={`px-6 py-3 font-medium transition-all relative ${
             activeTab === 'now-playing'
@@ -183,6 +199,7 @@ const AddShows = () => {
           onClick={() => {
             setActiveTab('upcoming');
             setSelectedMovie(null);
+            setSearchQuery("");
           }}
           className={`px-6 py-3 font-medium transition-all relative ${
             activeTab === 'upcoming'
@@ -202,20 +219,52 @@ const AddShows = () => {
         </button>
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex items-center justify-between flex-wrap gap-4">
         <p className="text-lg font-medium">
           {activeTab === 'now-playing' ? 'Phim đang phát' : 'Phim sắp khởi chiếu'}
         </p>
-        <p className="text-sm text-gray-400 flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Hover vào phim để xem thời lượng
-        </p>
+        <div className="flex items-center gap-4">
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm phim..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:border-primary transition w-64"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-400 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Hover vào phim để xem thời lượng
+          </p>
+        </div>
       </div>
+      {searchQuery && (
+        <div className="mt-2 text-sm text-gray-400">
+          Tìm thấy <span className="text-primary font-medium">{filteredMovies.length}</span> phim
+          {filteredMovies.length !== currentMovies.length && (
+            <span> / {currentMovies.length} phim</span>
+          )}
+        </div>
+      )}
       <div className="overflow-x-auto pb-4">
         <div className="group flex flex-wrap gap-4 mt-4 w-max">
-          {currentMovies.map((movie) => (
+          {filteredMovies.length > 0 ? (
+            filteredMovies.map((movie) => (
             <div key={movie.id} className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300 group/movie`} 
             onClick={() => setSelectedMovie(movie.id)}>
               <div className="relative rounded-lg overflow-hidden">
@@ -272,7 +321,13 @@ const AddShows = () => {
               <p className="font-medium truncate">{movie.title}</p>
               <p className="text-gray-400 text-sm">{movie.release_date}</p>
             </div>
-          ))}
+            ))
+          ) : (
+            <div className="w-full py-12 text-center">
+              <p className="text-gray-400 text-lg">Không tìm thấy phim nào</p>
+              <p className="text-gray-500 text-sm mt-2">Thử tìm kiếm với từ khóa khác</p>
+            </div>
+          )}
         </div>
       </div>
 

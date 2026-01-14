@@ -316,9 +316,9 @@ const sendShowReminders = inngest.createFunction(
         const in3Hours = new Date(now.getTime() + 3 * 60 * 60 * 1000);// 3h sau
 
         //chuẩn bị nhiệm vụ nhắc nhở
-        const remindersTasks = await step.run("perpare-reminder-tasks", async () => {
+        const remindersTasks = await step.run("prepare-reminder-tasks", async () => {
             const shows = await Show.find({
-                showTime: {$gte: now, $lt: in3Hours},
+                showDateTime: {$gte: now, $lt: in3Hours},
             }).populate('movie');
 
             const tasks = [];
@@ -336,7 +336,7 @@ const sendShowReminders = inngest.createFunction(
                         userEmail: user.email,
                         userName: user.name,
                         movieTitle: show.movie.title,
-                        showTime: show.showTime,
+                        showDateTime: show.showDateTime,
                     })
                 }
             }
@@ -365,11 +365,11 @@ const sendShowReminders = inngest.createFunction(
                         <p>
                             được lên lịch chiếu vào ngày
                             <strong>
-                            ${new Date(task.showTime).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                            ${new Date(task.showDateTime).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                             </strong>
                             lúc
                             <strong>
-                            ${new Date(task.showTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                            ${new Date(task.showDateTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                             </strong>.
                         </p>
 

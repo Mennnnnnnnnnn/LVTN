@@ -73,16 +73,47 @@ export const getDashboardData = async (req, res) => {
                 });
             }
         } else if (period === 'custom' && startDate && endDate) {
-            // Custom date range
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
+            // Custom date range - Parse dates in local timezone and compare date-only
+            const parseLocalDate = (dateString) => {
+                const [year, month, day] = dateString.split('-').map(Number);
+                return new Date(year, month - 1, day); // month is 0-indexed, creates local date
+            };
+            
+            // Helper to get date-only (local) from any date
+            const getDateOnly = (date) => {
+                const d = new Date(date);
+                return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            };
+            
+            const startFilter = parseLocalDate(startDate);
+            const endFilter = parseLocalDate(endDate);
+            const endFilterNextDay = new Date(endFilter);
+            endFilterNextDay.setDate(endFilterNextDay.getDate() + 1);
+            
+            const startDateOnly = getDateOnly(startFilter);
+            const endDateOnly = getDateOnly(endFilterNextDay);
+            
+            // Debug logging (can be removed later)
+            console.log('Custom filter - startDate:', startDate, 'endDate:', endDate);
+            console.log('Date range:', startDateOnly, 'to', endDateOnly);
+            console.log('Total bookings before filter:', bookings.length);
             
             bookings = bookings.filter(booking => {
-                const bookingDate = new Date(booking.createdAt);
-                return bookingDate >= start && bookingDate <= end;
+                // Convert booking.createdAt to local date-only for comparison
+                const bookingDateOnly = getDateOnly(booking.createdAt);
+                
+                // Compare date-only values: >= start and < end (exclusive, like "today" filter)
+                const isInRange = bookingDateOnly >= startDateOnly && bookingDateOnly < endDateOnly;
+                
+                // Debug logging for first few bookings
+                if (bookings.indexOf(booking) < 3) {
+                    console.log('Booking date:', booking.createdAt, '-> Local date-only:', bookingDateOnly, 'In range:', isInRange);
+                }
+                
+                return isInRange;
             });
+            
+            console.log('Total bookings after filter:', bookings.length);
         }
         
         // Only get shows with hall (exclude legacy data)
@@ -195,6 +226,52 @@ export const updateMoviesWithTrailers = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating movies:', error);
+        res.json({success: false, message: error.message});
+    }
+}
+
+//API to cancel/delete a show (only if no bookings exist)
+export const cancelShow = async (req, res) => {
+    try {
+        const { showId } = req.params;
+
+        // Check if show exists
+        const show = await Show.findById(showId);
+        if (!show) {
+            return res.json({success: false, message: 'Không tìm thấy chương trình'});
+        }
+
+        // Check if there are any occupied seats (actual bookings)
+        const occupiedSeatsCount = Object.keys(show.occupiedSeats || {}).length;
+        if (occupiedSeatsCount > 0) {
+            return res.json({
+                success: false, 
+                message: 'Không thể hủy chương trình vì đã có người đặt vé'
+            });
+        }
+
+        // Also check for any paid bookings (as a safety check)
+        const paidBookings = await Booking.find({ 
+            show: showId, 
+            ispaid: true,
+            status: { $ne: 'cancelled' }
+        });
+        if (paidBookings.length > 0) {
+            return res.json({
+                success: false, 
+                message: 'Không thể hủy chương trình vì đã có người đặt vé'
+            });
+        }
+
+        // Delete the show
+        await Show.findByIdAndDelete(showId);
+
+        res.json({
+            success: true, 
+            message: 'Hủy chương trình thành công'
+        });
+    } catch (error) {
+        console.log(error.message);
         res.json({success: false, message: error.message});
     }
 }
