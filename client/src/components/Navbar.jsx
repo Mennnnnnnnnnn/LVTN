@@ -58,7 +58,7 @@ const Navbar = () => {
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/'>Trang Chủ</Link>
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/movies'>Phim đang chiếu</Link>
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/upcoming-movies'>Phim sắp khởi chiếu</Link>
-                <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/search'>Tìm kiếm</Link>
+                <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/search'>Thể loại</Link>
                 {favoriteMovies.length > 0 && <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/favorite'>Yêu thích</Link>}
             </div>
             <div className='flex items-center gap-4 md:gap-8'>
