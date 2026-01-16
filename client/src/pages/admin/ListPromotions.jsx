@@ -34,7 +34,8 @@ const ListPromotions = () => {
         endDate: '',
         type: 'special',
         applicableDays: [],
-        maxUsage: 0
+        maxUsage: 0,
+        maxUsagePerUser: 0
     });
 
     const promotionTypes = [
@@ -86,7 +87,8 @@ const ListPromotions = () => {
             endDate: '',
             type: 'special',
             applicableDays: [],
-            maxUsage: 0
+            maxUsage: 0,
+            maxUsagePerUser: 0
         });
         setEditingPromotion(null);
     };
@@ -108,7 +110,8 @@ const ListPromotions = () => {
             endDate: new Date(promotion.endDate).toISOString().split('T')[0],
             type: promotion.type,
             applicableDays: promotion.applicableDays || [],
-            maxUsage: promotion.maxUsage || 0
+            maxUsage: promotion.maxUsage || 0,
+            maxUsagePerUser: promotion.maxUsagePerUser || 0
         });
         setShowModal(true);
     };
@@ -243,10 +246,10 @@ const ListPromotions = () => {
                         <div
                             key={promotion._id}
                             className={`p-4 rounded-xl border ${isPromotionActiveNow(promotion)
-                                    ? 'border-green-500/50 bg-green-500/5'
-                                    : promotion.isActive
-                                        ? 'border-gray-700 bg-white/5'
-                                        : 'border-gray-800 bg-gray-900/50 opacity-60'
+                                ? 'border-green-500/50 bg-green-500/5'
+                                : promotion.isActive
+                                    ? 'border-gray-700 bg-white/5'
+                                    : 'border-gray-800 bg-gray-900/50 opacity-60'
                                 }`}
                         >
                             <div className='flex flex-wrap items-start justify-between gap-4'>
@@ -291,13 +294,18 @@ const ListPromotions = () => {
                                             Đã dùng: {promotion.usageCount || 0}/{promotion.maxUsage} lượt
                                         </div>
                                     )}
+                                    {promotion.maxUsagePerUser > 0 && (
+                                        <div className='mt-1 text-sm text-yellow-400'>
+                                            Giới hạn: {promotion.maxUsagePerUser} lượt/tài khoản
+                                        </div>
+                                    )}
                                 </div>
                                 <div className='flex items-center gap-2'>
                                     <button
                                         onClick={() => toggleStatus(promotion._id)}
                                         className={`p-2 rounded-lg transition ${promotion.isActive
-                                                ? 'text-green-400 hover:bg-green-500/20'
-                                                : 'text-gray-500 hover:bg-gray-700'
+                                            ? 'text-green-400 hover:bg-green-500/20'
+                                            : 'text-gray-500 hover:bg-gray-700'
                                             }`}
                                         title={promotion.isActive ? 'Tắt khuyến mãi' : 'Bật khuyến mãi'}
                                     >
@@ -418,8 +426,8 @@ const ListPromotions = () => {
                                                 type='button'
                                                 onClick={() => handleDayToggle(day.value)}
                                                 className={`px-3 py-1.5 rounded-lg text-sm transition ${formData.applicableDays.includes(day.value)
-                                                        ? 'bg-primary text-white'
-                                                        : 'bg-white/5 border border-gray-700 hover:border-primary'
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-white/5 border border-gray-700 hover:border-primary'
                                                     }`}
                                             >
                                                 {day.label}
@@ -471,6 +479,22 @@ const ListPromotions = () => {
                                     min={0}
                                 />
                                 <p className='text-xs text-gray-500 mt-1'>Nhập 0 để không giới hạn số lượt</p>
+                            </div>
+
+                            {/* Max Usage Per User */}
+                            <div>
+                                <label className='block text-sm text-gray-400 mb-1'>
+                                    Số lượt tối đa cho mỗi tài khoản
+                                </label>
+                                <input
+                                    type='number'
+                                    value={formData.maxUsagePerUser}
+                                    onChange={e => setFormData({ ...formData, maxUsagePerUser: parseInt(e.target.value) || 0 })}
+                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                    placeholder='0 = Không giới hạn'
+                                    min={0}
+                                />
+                                <p className='text-xs text-gray-500 mt-1'>Nhập 0 để không giới hạn. VD: 1 = mỗi tài khoản chỉ được dùng 1 lần</p>
                             </div>
 
                             {/* Submit Button */}

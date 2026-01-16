@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboardIcon, ListCollapseIcon, ListIcon, PlaySquareIcon, Users, Building2, Gift } from 'lucide-react';
+import { LayoutDashboardIcon, ListCollapseIcon, ListIcon, PlaySquareIcon, Users, Building2, Gift, Image } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 import { useAppContext } from '../../context/AppContext';
@@ -15,6 +15,7 @@ const AdminSidebar = () => {
         { name: 'Danh sách đặt chỗ', path: '/admin/list-bookings', icon: ListCollapseIcon },
         { name: 'Danh sách người dùng', path: '/admin/list-users', icon: Users },
         { name: 'Quản lý khuyến mãi', path: '/admin/promotions', icon: Gift },
+        { name: 'Quản lý banner', path: '/admin/banners', icon: Image },
     ]
     return (
         <div className='h-[calc(100vh-64px)] md:flex flex-col items-center pt-8 max-w-13 md:max-w-60 w-full border-r border-gray-300/20 text-sm'>

@@ -25,6 +25,7 @@ import ListBookings from './pages/admin/ListBookings';
 import ListUsers from './pages/admin/ListUsers';
 import ListCinemaHalls from './pages/admin/ListCinemaHalls';
 import ListPromotions from './pages/admin/ListPromotions';
+import ListBanners from './pages/admin/ListBanners';
 import { useAppContext } from './context/AppContext';
 import { SignIn, useAuth } from '@clerk/clerk-react';
 
@@ -77,6 +78,7 @@ const App = () => {
           <Route path="list-bookings" element={<ListBookings />} />
           <Route path="list-users" element={<ListUsers />} />
           <Route path="promotions" element={<ListPromotions />} />
+          <Route path="banners" element={<ListBanners />} />
         </Route>
       </Routes>
       {!isAdminRoute && <Footer />}
