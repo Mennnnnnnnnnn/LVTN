@@ -15,6 +15,16 @@ const promotionSchema = new mongoose.Schema({
     maxUsage: { type: Number, default: 0 },
     // Số lần đã sử dụng
     usageCount: { type: Number, default: 0 },
+    // Số lần sử dụng tối đa cho mỗi tài khoản (0 = không giới hạn)
+    maxUsagePerUser: { type: Number, default: 0 },
+
+    // Banner fields - hiển thị khuyến mãi cho người dùng
+    bannerImage: { type: String }, // URL hình ảnh banner
+    bannerTitle: { type: String }, // Tiêu đề hiển thị trên banner
+    bannerSubtitle: { type: String }, // Phụ đề banner
+    showBanner: { type: Boolean, default: false }, // Có hiển thị banner không
+    bannerOrder: { type: Number, default: 0 }, // Thứ tự hiển thị (số nhỏ hiển thị trước)
+
     createdBy: { type: String, ref: 'User' },
 }, { timestamps: true });
 

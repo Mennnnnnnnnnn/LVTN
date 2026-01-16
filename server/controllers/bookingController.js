@@ -3,6 +3,7 @@ import { inngest } from "../inngest/index.js";
 import Booking from "../models/Booking.js";
 import Show from "../models/Show.js";
 import Promotion from "../models/Promotion.js";
+import User from "../models/User.js";
 import stripe from 'stripe';
 
 
@@ -24,8 +25,24 @@ const checkSeatsAvailability = async (showId, selectedSeats) => {
     }
 }
 
-// Hàm lấy khuyến mãi tốt nhất hiện tại
-const getBestActivePromotion = async () => {
+// Hàm kiểm tra số lần user đã sử dụng một promotion
+const getUserPromotionUsageCount = async (userId, promotionId) => {
+    try {
+        const count = await Booking.countDocuments({
+            user: userId,
+            promotionApplied: promotionId,
+            ispaid: true,
+            status: { $ne: 'cancelled' }
+        });
+        return count;
+    } catch (error) {
+        console.error('Error counting user promotion usage:', error);
+        return 0;
+    }
+};
+
+// Hàm lấy khuyến mãi tốt nhất hiện tại cho user
+const getBestActivePromotion = async (userId) => {
     try {
         const now = new Date();
         const today = now.getDay();
@@ -40,12 +57,27 @@ const getBestActivePromotion = async () => {
             ]
         });
 
-        const applicablePromotions = promotions.filter(promo => {
+        // Lọc các promotion có thể áp dụng cho user
+        const applicablePromotions = [];
+
+        for (const promo of promotions) {
+            // Kiểm tra ngày áp dụng (weekly)
             if (promo.type === 'weekly' && promo.applicableDays.length > 0) {
-                return promo.applicableDays.includes(today);
+                if (!promo.applicableDays.includes(today)) {
+                    continue;
+                }
             }
-            return true;
-        });
+
+            // Kiểm tra giới hạn sử dụng cho mỗi user
+            if (promo.maxUsagePerUser > 0) {
+                const userUsageCount = await getUserPromotionUsageCount(userId, promo._id);
+                if (userUsageCount >= promo.maxUsagePerUser) {
+                    continue; // User đã sử dụng hết số lần cho phép
+                }
+            }
+
+            applicablePromotions.push(promo);
+        }
 
         if (applicablePromotions.length > 0) {
             return applicablePromotions.reduce((best, current) =>
@@ -116,8 +148,8 @@ export const createBooking = async (req, res) => {
         // Lưu giá gốc
         const originalAmount = totalAmount;
 
-        // Kiểm tra và áp dụng khuyến mãi
-        const activePromotion = await getBestActivePromotion();
+        // Kiểm tra và áp dụng khuyến mãi (truyền userId để kiểm tra giới hạn mỗi user)
+        const activePromotion = await getBestActivePromotion(userId);
         let discountAmount = 0;
         let promotionId = null;
 
@@ -126,10 +158,21 @@ export const createBooking = async (req, res) => {
             totalAmount = totalAmount - discountAmount;
             promotionId = activePromotion._id;
 
+            console.log('🎉 Promotion applied:', {
+                name: activePromotion.name,
+                discountPercent: activePromotion.discountPercent,
+                originalAmount,
+                discountAmount,
+                finalAmount: totalAmount,
+                promotionId
+            });
+
             // Tăng số lần sử dụng của promotion
             await Promotion.findByIdAndUpdate(activePromotion._id, {
                 $inc: { usageCount: 1 }
             });
+        } else {
+            console.log('❌ No promotion applied');
         }
 
         //create a new booking
@@ -141,6 +184,14 @@ export const createBooking = async (req, res) => {
             promotionApplied: promotionId,
             discountAmount: discountAmount,
             bookedSeats: selectedSeats
+        });
+
+        console.log('📋 Booking created:', {
+            bookingId: booking._id,
+            originalAmount: booking.originalAmount,
+            discountAmount: booking.discountAmount,
+            amount: booking.amount,
+            promotionApplied: booking.promotionApplied
         });
 
         selectedSeats.map((seat) => {
@@ -309,7 +360,7 @@ export const cancelBooking = async (req, res) => {
         // Chỉ có thể hoàn tiền khi dùng PRODUCTION keys và có paymentIntentId
         //
         // ========================================
-        
+
         // TODO: Uncomment code sau khi thêm paymentIntentId vào Booking model và chuyển sang PRODUCTION
         /*
         try {
@@ -358,7 +409,7 @@ export const cancelBooking = async (req, res) => {
             // });
         }
         */
-        
+
         // ========================================
         // END: HOÀN TIỀN THỰC SỰ
         // ========================================

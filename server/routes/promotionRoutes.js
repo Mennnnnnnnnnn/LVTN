@@ -6,13 +6,15 @@ import {
     updatePromotion,
     deletePromotion,
     getActivePromotions,
-    togglePromotionStatus
+    togglePromotionStatus,
+    getPromotionBanners
 } from '../controllers/promotionController.js';
 
 const promotionRouter = express.Router();
 
 // Public routes
 promotionRouter.get('/active', getActivePromotions);
+promotionRouter.get('/banners', getPromotionBanners);
 
 // Admin routes
 promotionRouter.get('/all', protectAdmin, getAllPromotions);

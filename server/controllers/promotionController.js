@@ -15,7 +15,7 @@ export const getAllPromotions = async (req, res) => {
 export const createPromotion = async (req, res) => {
     try {
         const { userId } = req.auth();
-        const { name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage } = req.body;
+        const { name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage, maxUsagePerUser, bannerImage, bannerTitle, bannerSubtitle, showBanner, bannerOrder } = req.body;
 
         // Validate
         if (!name || !discountPercent || !startDate || !endDate) {
@@ -39,6 +39,12 @@ export const createPromotion = async (req, res) => {
             type: type || 'special',
             applicableDays: applicableDays || [],
             maxUsage: maxUsage || 0,
+            maxUsagePerUser: maxUsagePerUser || 0,
+            bannerImage: bannerImage || '',
+            bannerTitle: bannerTitle || '',
+            bannerSubtitle: bannerSubtitle || '',
+            showBanner: showBanner || false,
+            bannerOrder: bannerOrder || 0,
             createdBy: userId
         });
 
@@ -53,7 +59,7 @@ export const createPromotion = async (req, res) => {
 export const updatePromotion = async (req, res) => {
     try {
         const { promotionId } = req.params;
-        const { name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage, isActive } = req.body;
+        const { name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage, maxUsagePerUser, isActive, bannerImage, bannerTitle, bannerSubtitle, showBanner, bannerOrder } = req.body;
 
         const promotion = await Promotion.findById(promotionId);
         if (!promotion) {
@@ -69,7 +75,13 @@ export const updatePromotion = async (req, res) => {
         if (type) promotion.type = type;
         if (applicableDays) promotion.applicableDays = applicableDays;
         if (maxUsage !== undefined) promotion.maxUsage = maxUsage;
+        if (maxUsagePerUser !== undefined) promotion.maxUsagePerUser = maxUsagePerUser;
         if (isActive !== undefined) promotion.isActive = isActive;
+        if (bannerImage !== undefined) promotion.bannerImage = bannerImage;
+        if (bannerTitle !== undefined) promotion.bannerTitle = bannerTitle;
+        if (bannerSubtitle !== undefined) promotion.bannerSubtitle = bannerSubtitle;
+        if (showBanner !== undefined) promotion.showBanner = showBanner;
+        if (bannerOrder !== undefined) promotion.bannerOrder = bannerOrder;
 
         await promotion.save();
         res.json({ success: true, message: 'Cập nhật khuyến mãi thành công', promotion });
@@ -155,6 +167,27 @@ export const togglePromotionStatus = async (req, res) => {
         });
     } catch (error) {
         console.error('Error toggling promotion:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Lấy danh sách banner khuyến mãi (Public)
+export const getPromotionBanners = async (req, res) => {
+    try {
+        const now = new Date();
+
+        const banners = await Promotion.find({
+            isActive: true,
+            showBanner: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        })
+            .select('name discountPercent bannerImage bannerTitle bannerSubtitle bannerOrder startDate endDate')
+            .sort({ bannerOrder: 1 });
+
+        res.json({ success: true, banners });
+    } catch (error) {
+        console.error('Error fetching promotion banners:', error);
         res.json({ success: false, message: error.message });
     }
 };

@@ -12,21 +12,21 @@ const vndFormat = (amount) => {
 };
 
 // Create a client to send and receive events
-export const inngest = new Inngest({ 
-    id: "movie-ticket-booking", 
+export const inngest = new Inngest({
+    id: "movie-ticket-booking",
     signingKey: process.env.INNGEST_SIGNING_KEY
 });
 
 //Inngest Functions to save user data to a database
 const syncUserCreation = inngest.createFunction(
-    { id:'sync-user-from-clerk' },
+    { id: 'sync-user-from-clerk' },
     { event: 'clerk/user.created' },
     async ({ event }) => {
         try {
-            const {id, first_name, last_name, email_addresses, image_url} = event.data;
+            const { id, first_name, last_name, email_addresses, image_url } = event.data;
             const userData = {
                 _id: id,
-                name:first_name + ' ' + last_name,
+                name: first_name + ' ' + last_name,
                 email: email_addresses[0]?.email_address,
                 image: image_url
             };
@@ -39,11 +39,11 @@ const syncUserCreation = inngest.createFunction(
 )
 //Inngest Functions to delete user from a database
 const syncUserDeletion = inngest.createFunction(
-    { id:'delete-user-with-clerk' },
+    { id: 'delete-user-with-clerk' },
     { event: 'clerk/user.deleted' },
     async ({ event }) => {
         try {
-            const {id} = event.data;
+            const { id } = event.data;
             await User.findByIdAndDelete(id);
         } catch (error) {
             console.error('Error deleting user:', error);
@@ -53,14 +53,14 @@ const syncUserDeletion = inngest.createFunction(
 )
 //Inngest Functions to update user in a database
 const syncUserUpdation = inngest.createFunction(
-    { id:'update-user-from-clerk' },
+    { id: 'update-user-from-clerk' },
     { event: 'clerk/user.updated' },
     async ({ event }) => {
         try {
-            const {id, first_name, last_name, email_addresses, image_url} = event.data;
+            const { id, first_name, last_name, email_addresses, image_url } = event.data;
             const userData = {
                 _id: id,
-                name:first_name + ' ' + last_name,
+                name: first_name + ' ' + last_name,
                 email: email_addresses[0]?.email_address,
                 image: image_url
             };
@@ -75,8 +75,8 @@ const syncUserUpdation = inngest.createFunction(
 // sau 10 phút kể từ khi đặt chỗ được tạo nếu thanh toán không được thực hiện.
 
 const releaseSeatAndDeleteBooking = inngest.createFunction(
-    { id:'release-seats-delete-booking'},
-    { event: "app/checkpayment"},
+    { id: 'release-seats-delete-booking' },
+    { event: "app/checkpayment" },
     async ({ event, step }) => {
         const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000);
         await step.sleepUntil('wait-for-10-minutes', tenMinutesLater);
@@ -85,7 +85,7 @@ const releaseSeatAndDeleteBooking = inngest.createFunction(
             const bookingId = event.data.bookingId;
             const booking = await Booking.findById(bookingId);
             // nếu thanh toán chưa được thực hiện, hủy đặt chỗ và giải phóng chỗ ngồi
-            if(!booking.ispaid){
+            if (!booking.ispaid) {
                 const show = await Show.findById(booking.show);
                 booking.bookedSeats.forEach((seat) => {
                     delete show.occupiedSeats[seat];
@@ -100,19 +100,19 @@ const releaseSeatAndDeleteBooking = inngest.createFunction(
 
 // hàm inngest gửi email khi người dùng đặt vé thành công
 const sendBookingConfirmationEmail = inngest.createFunction(
-    { id:'send-booking-confirmation-email'},
-    { event: "app/show.booked"},
+    { id: 'send-booking-confirmation-email' },
+    { event: "app/show.booked" },
     async ({ event, step }) => {
-        const {bookingId} = event.data;
+        const { bookingId } = event.data;
 
         const booking = await Booking.findById(bookingId).populate({
             path: 'show',
             populate: [
-                {path: 'movie', model: 'Movie'},
-                {path: 'hall', model: 'CinemaHall'}
+                { path: 'movie', model: 'Movie' },
+                { path: 'hall', model: 'CinemaHall' }
             ]
-        }).populate('user');
-        
+        }).populate('user').populate('promotionApplied');
+
         // Tạo QR code chứa thông tin booking
         const qrData = JSON.stringify({
             bookingId: booking._id,
@@ -120,7 +120,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
             showId: booking.show._id,
             seats: booking.bookedSeats
         });
-        
+
         // Generate QR code as buffer, then convert to base64
         const qrCodeBuffer = await QRCode.toBuffer(qrData, {
             width: 250,
@@ -131,7 +131,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                 light: '#FFFFFF'
             }
         });
-        
+
         // Convert buffer to base64 string (without data URI prefix)
         const qrCodeBase64 = qrCodeBuffer.toString('base64');
 
@@ -143,7 +143,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
             month: 'long',
             day: 'numeric'
         });
-        
+
         const showTime = new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN', {
             timeZone: 'Asia/Ho_Chi_Minh',
             hour: '2-digit',
@@ -151,11 +151,37 @@ const sendBookingConfirmationEmail = inngest.createFunction(
         });
 
         // Format seats as badges
-        const seatBadges = booking.bookedSeats.map(seat => 
+        const seatBadges = booking.bookedSeats.map(seat =>
             `<span style="display: inline-block; background: #F84565; color: white; padding: 6px 12px; margin: 4px; border-radius: 6px; font-weight: 600; font-size: 13px;">${seat}</span>`
         ).join('');
 
-        const pricePerSeat = booking.amount / booking.bookedSeats.length;
+        // Tính giá gốc (nếu không có thì dùng amount + discountAmount)
+        const originalAmount = booking.originalAmount || (booking.amount + (booking.discountAmount || 0));
+        const discountAmount = booking.discountAmount || 0;
+        const hasDiscount = booking.promotionApplied && discountAmount > 0;
+
+        // Log để debug
+        console.log('📧 Email booking info:', {
+            bookingId: booking._id,
+            originalAmount,
+            discountAmount,
+            finalAmount: booking.amount,
+            hasDiscount,
+            promotionApplied: booking.promotionApplied ? booking.promotionApplied.name : 'None'
+        });
+
+        // Tạo phần HTML cho khuyến mãi
+        const discountHTML = hasDiscount ? `
+            <tr>
+                <td colspan="2" style="padding: 12px 0;">
+                    <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); border-radius: 10px; padding: 15px; text-align: center;">
+                        <p style="margin: 0 0 5px 0; color: white; font-size: 13px;">🎉 KHUYẾN MÃI ĐÃ ÁP DỤNG</p>
+                        <p style="margin: 0 0 8px 0; color: white; font-size: 16px; font-weight: 700;">${booking.promotionApplied.name}</p>
+                        <p style="margin: 0; color: #ffe66d; font-size: 20px; font-weight: 700;">-${booking.promotionApplied.discountPercent}% (Tiết kiệm ${vndFormat(discountAmount)})</p>
+                    </div>
+                </td>
+            </tr>
+        ` : '';
 
         // inngest gửi email với QR code attachment
         await sendEmail({
@@ -242,11 +268,16 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                             </h2>
                             <table style="width: 100%; border-collapse: collapse;">
                                 <tr>
-                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Giá vé:</td>
-                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${vndFormat(pricePerSeat)} × ${booking.bookedSeats.length}</td>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Số ghế:</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${booking.bookedSeats.length} ghế</td>
                                 </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666; font-size: 14px;">Tạm tính:</td>
+                                    <td style="padding: 8px 0; color: ${hasDiscount ? '#999' : '#333'}; font-weight: 600; font-size: 14px; text-align: right;${hasDiscount ? ' text-decoration: line-through;' : ''}">${vndFormat(originalAmount)}</td>
+                                </tr>
+                                ${discountHTML}
                                 <tr style="border-top: 2px solid #e9ecef;">
-                                    <td style="padding: 12px 0; color: #333; font-size: 16px; font-weight: 700;">Tổng cộng:</td>
+                                    <td style="padding: 12px 0; color: #333; font-size: 16px; font-weight: 700;">Tổng thanh toán:</td>
                                     <td style="padding: 12px 0; color: #F84565; font-weight: 700; font-size: 20px; text-align: right;">${vndFormat(booking.amount)}</td>
                                 </tr>
                                 <tr>
@@ -309,29 +340,29 @@ const sendBookingConfirmationEmail = inngest.createFunction(
 //Inngest Functions để gửi lời nhắc
 
 const sendShowReminders = inngest.createFunction(
-    { id:'send-show-reminders'},
-    {cron: "0 */1 * * *"}, // chạy mỗi 1h để không miss reminder
-    async ({step}) => {
+    { id: 'send-show-reminders' },
+    { cron: "0 */1 * * *" }, // chạy mỗi 1h để không miss reminder
+    async ({ step }) => {
         const now = new Date();
         const in3Hours = new Date(now.getTime() + 3 * 60 * 60 * 1000);// 3h sau
 
         //chuẩn bị nhiệm vụ nhắc nhở
         const remindersTasks = await step.run("prepare-reminder-tasks", async () => {
             const shows = await Show.find({
-                showDateTime: {$gte: now, $lt: in3Hours},
+                showDateTime: { $gte: now, $lt: in3Hours },
             }).populate('movie');
 
             const tasks = [];
-            
-            for(const show of shows){
-                if(!show.movie || !show.occupiedSeats) continue;
+
+            for (const show of shows) {
+                if (!show.movie || !show.occupiedSeats) continue;
 
                 const userIds = [...new Set(Object.values(show.occupiedSeats))];
-                if(userIds.length === 0) continue;
+                if (userIds.length === 0) continue;
 
-                const users = await User.find({_id: {$in: userIds}}).select('name email');
+                const users = await User.find({ _id: { $in: userIds } }).select('name email');
 
-                for(const user of users){
+                for (const user of users) {
                     tasks.push({
                         userEmail: user.email,
                         userName: user.name,
@@ -343,18 +374,18 @@ const sendShowReminders = inngest.createFunction(
             return tasks;
         });
 
-        if(remindersTasks.length === 0){
-            return {sent: 0, message:"không có lời nhắc nào để gửi"}
+        if (remindersTasks.length === 0) {
+            return { sent: 0, message: "không có lời nhắc nào để gửi" }
         }
-        
+
         //gửi email nhắc nhở
 
         const results = await step.run('send-all-reminders', async () => {
             return await Promise.allSettled(
-                 remindersTasks.map(task => sendEmail({
-                     to: task.userEmail,
-                     subject:`Nhắc nhở: Phim "${task.movieTitle}" sắp bắt đầu chiếu!`,
-                     body: `
+                remindersTasks.map(task => sendEmail({
+                    to: task.userEmail,
+                    subject: `Nhắc nhở: Phim "${task.movieTitle}" sắp bắt đầu chiếu!`,
+                    body: `
                         <div style="font-family: Arial, sans-serif; padding: 20px;">
                         <h2>Xin chào ${task.userName},</h2>
 
@@ -383,7 +414,7 @@ const sendShowReminders = inngest.createFunction(
                         <p>Chúc bạn xem phim vui vẻ!<br/>Đội ngũ QuickShow</p>
                         </div>
                         `
-                 }))
+                }))
             )
         })
 
@@ -400,10 +431,10 @@ const sendShowReminders = inngest.createFunction(
 //Hàm Inngest dùng để gửi thông báo khi có chương trình mới được thêm vào.
 
 const sendNewShowNotifications = inngest.createFunction(
-    {id: "send-new-show-notifications"},
-    {event: "app/show.added"},
-    async ({event, step}) => {
-        const {movieTitle, movieId} = event.data;
+    { id: "send-new-show-notifications" },
+    { event: "app/show.added" },
+    async ({ event, step }) => {
+        const { movieTitle, movieId } = event.data;
 
         // Lấy thông tin chi tiết phim để email đẹp hơn
         const movie = await step.run('get-movie-details', async () => {
@@ -413,7 +444,7 @@ const sendNewShowNotifications = inngest.createFunction(
 
         if (!movie) {
             console.log('Movie not found, skip notification');
-            return {message: "Movie not found"};
+            return { message: "Movie not found" };
         }
 
         const users = await User.find({});
@@ -423,11 +454,11 @@ const sendNewShowNotifications = inngest.createFunction(
         for (let i = 0; i < users.length; i += batchSize) {
             await step.run(`send-batch-${i}`, async () => {
                 const batch = users.slice(i, i + batchSize);
-                
+
                 const promises = batch.map(user => {
                     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
                     const movieUrl = `${frontendUrl}/movies/${movie._id}`;
-                    
+
                     return sendEmail({
                         to: user.email,
                         subject: `🎬 Phim mới: ${movie.title}`,
@@ -498,22 +529,22 @@ const sendNewShowNotifications = inngest.createFunction(
             });
         }
 
-        return {message: `Đã gửi thông báo phim "${movieTitle}" cho ${users.length} người dùng.`}
+        return { message: `Đã gửi thông báo phim "${movieTitle}" cho ${users.length} người dùng.` }
     }
 )
 
 // Inngest function gửi email xác nhận hủy vé
 const sendCancellationEmail = inngest.createFunction(
-    { id:'send-cancellation-email'},
-    { event: "app/booking.cancelled"},
+    { id: 'send-cancellation-email' },
+    { event: "app/booking.cancelled" },
     async ({ event, step }) => {
         const { bookingId } = event.data;
 
         const booking = await Booking.findById(bookingId).populate({
             path: 'show',
             populate: [
-                {path: 'movie', model: 'Movie'},
-                {path: 'hall', model: 'CinemaHall'}
+                { path: 'movie', model: 'Movie' },
+                { path: 'hall', model: 'CinemaHall' }
             ]
         }).populate('user');
 
@@ -562,10 +593,10 @@ const sendCancellationEmail = inngest.createFunction(
                             <div class="refund-amount">${vndFormat(booking.refundAmount)}</div>
                             <p style="font-size: 18px; color: #666;">(${booking.refundPercentage}% giá trị vé)</p>
                             <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                                ${booking.ispaid 
-                                    ? '💳 Số tiền sẽ được hoàn lại vào tài khoản của bạn trễ nhất trong vòng 3 ngày làm việc.'
-                                    : '✅ Vé chưa thanh toán nên không có giao dịch hoàn tiền.'
-                                }
+                                ${booking.ispaid
+                ? '💳 Số tiền sẽ được hoàn lại vào tài khoản của bạn trễ nhất trong vòng 3 ngày làm việc.'
+                : '✅ Vé chưa thanh toán nên không có giao dịch hoàn tiền.'
+            }
                             </p>
                         </div>
 
@@ -609,9 +640,9 @@ const sendCancellationEmail = inngest.createFunction(
 export const functions = [
     syncUserCreation,
     syncUserDeletion,
-    syncUserUpdation, 
-    releaseSeatAndDeleteBooking, 
-    sendBookingConfirmationEmail, 
+    syncUserUpdation,
+    releaseSeatAndDeleteBooking,
+    sendBookingConfirmationEmail,
     sendShowReminders,
     sendNewShowNotifications,
     sendCancellationEmail
