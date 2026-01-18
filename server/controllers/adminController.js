@@ -140,11 +140,52 @@ export const getDashboardData = async (req, res) => {
 
 export const getAllShows = async (req, res) => {
     try {
-        // Only get shows with hall (exclude legacy data)
-        const shows = await Show.find({
-            showDateTime: {$gte: new Date()},
+        const { status } = req.query; // Allow filtering by status via query param
+        
+        const now = new Date();
+        
+        // Step 1: Update completed shows (shows that have passed endDateTime)
+        await Show.updateMany(
+            {
+                endDateTime: { $lt: now },
+                status: { $in: ['upcoming', 'active'] }
+            },
+            {
+                $set: { status: 'completed' }
+            }
+        );
+        
+        // Step 2: Update active shows (shows currently running)
+        await Show.updateMany(
+            {
+                showDateTime: { $lte: now },
+                endDateTime: { $gte: now },
+                status: 'upcoming'
+            },
+            {
+                $set: { status: 'active' }
+            }
+        );
+        
+        // Build query - get all shows with hall (for admin to see all statuses)
+        const query = {
             hall: {$exists: true}
-        }).populate('movie').populate('hall').sort({showDateTime: 1});
+        };
+        
+        // If status filter is provided and not 'all', filter by status
+        if (status && status !== 'all') {
+            query.status = status;
+            // For completed/cancelled, show all shows (past and future)
+            // For upcoming/active, only show future shows
+            if (status === 'upcoming' || status === 'active') {
+                query.showDateTime = {$gte: new Date()};
+            }
+        } else {
+            // When status = 'all': show ALL shows in DB (all statuses, past and future)
+            // Don't filter by time or status when showing 'all'
+        }
+        
+        const shows = await Show.find(query).populate('movie').populate('hall').sort({showDateTime: 1});
         res.json({success: true, shows});
     } catch (error) {
         console.log(error.message);
@@ -263,8 +304,17 @@ export const cancelShow = async (req, res) => {
             });
         }
 
-        // Delete the show
-        await Show.findByIdAndDelete(showId);
+        // Check if show has already passed or is completed
+        if (show.status === 'completed') {
+            return res.json({
+                success: false, 
+                message: 'Không thể hủy chương trình đã hoàn thành'
+            });
+        }
+
+        // Update status to cancelled instead of deleting
+        show.status = 'cancelled';
+        await show.save();
 
         res.json({
             success: true, 

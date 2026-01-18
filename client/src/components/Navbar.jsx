@@ -55,7 +55,7 @@ const Navbar = () => {
         overflow-hidden transition-[width] duration-300 ${isOpen ? 'max-md:w-full' : 'max-md:w-0'}`}>
                 <XIcon className='md:hidden absolute top-6 right-6 w-6 h-6 cursor-pointer' onClick={() => setIsOpen(!isOpen)} />
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/'>Trang Chủ</Link>
-                <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/movies'>Phim đang chiếu</Link>
+                <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/movies'>Chương trình hiện có</Link>
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/upcoming-movies'>Phim sắp khởi chiếu</Link>
                 <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/search'>Thể loại</Link>
                 {favoriteMovies.length > 0 && <Link onClick={() => { scrollTo(0, 0); setIsOpen(false) }} to='/favorite'>Yêu thích</Link>}

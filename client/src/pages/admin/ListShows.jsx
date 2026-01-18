@@ -19,10 +19,13 @@ const ListShows = () => {
   // Filter states
   const [movieFilter, setMovieFilter] = useState('all');
   const [hallFilter, setHallFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   const getAllShows = async () =>{
     try {
+      const params = statusFilter !== 'all' ? { status: statusFilter } : {};
       const {data} = await axios.get('/api/admin/all-shows', {
+        params,
         headers: {
           Authorization: `Bearer ${await getToken()}`
         }
@@ -38,7 +41,7 @@ const ListShows = () => {
     if(user){
       getAllShows();
     }
-  },[user]);
+  },[user, statusFilter]);
 
   const handleCancelShow = async (showId) => {
     if (!window.confirm('Bạn có chắc chắn muốn hủy chương trình này?')) {
@@ -97,7 +100,7 @@ const ListShows = () => {
       <Title text1="" text2="Danh sách chương trình" />
       
       {/* Filters */}
-      <div className="max-w-4xl mt-6 mb-4 flex flex-wrap gap-4 items-center">
+      <div className="w-full mt-6 mb-4 flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-2">
           <Filter className="w-5 h-5 text-primary" />
           <span className="text-sm font-medium text-gray-300">Lọc:</span>
@@ -131,12 +134,26 @@ const ListShows = () => {
           ))}
         </select>
 
+        {/* Status Filter */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-white text-sm [&>option]:bg-black [&>option]:text-white"
+        >
+          <option value="all" className="bg-black text-white">Tất cả trạng thái</option>
+          <option value="upcoming" className="bg-black text-white">Sắp chiếu</option>
+          <option value="active" className="bg-black text-white">Đang chiếu</option>
+          <option value="completed" className="bg-black text-white">Đã hoàn thành</option>
+          <option value="cancelled" className="bg-black text-white">Đã hủy</option>
+        </select>
+
         {/* Reset Filter */}
-        {(movieFilter !== 'all' || hallFilter !== 'all') && (
+        {(movieFilter !== 'all' || hallFilter !== 'all' || statusFilter !== 'all') && (
           <button
             onClick={() => {
               setMovieFilter('all');
               setHallFilter('all');
+              setStatusFilter('all');
             }}
             className="px-4 py-2 text-sm text-gray-400 hover:text-white transition"
           >
@@ -145,54 +162,74 @@ const ListShows = () => {
         )}
       </div>
 
-      <div className="max-w-4xl mt-6 overflow-x-auto">
-        <table className="w-full border-collapse rounded-md overflow-hidden text-nowrap">
+      <div className="w-full mt-6 overflow-x-auto">
+        <table className="w-full border-collapse rounded-md overflow-hidden min-w-[800px]">
           <thead>
             <tr className="bg-primary/20 text-left text-white">
-              <th className="p-2 font-medium pl-5">Tên phim</th>
-              <th className="p-2 font-medium">Phòng chiếu</th>
-              <th className="p-2 font-medium">Thời gian hiển thị</th>
-              <th className="p-2 font-medium">Tổng số lượng đặt chỗ</th>
-              <th className="p-2 font-medium">Thu nhập</th>
-              <th className="p-2 font-medium">Thao tác</th>
+              <th className="p-2 font-medium pl-5 min-w-[150px]">Tên phim</th>
+              <th className="p-2 font-medium min-w-[120px]">Phòng chiếu</th>
+              <th className="p-2 font-medium min-w-[140px]">Thời gian</th>
+              <th className="p-2 font-medium min-w-[100px]">Trạng thái</th>
+              <th className="p-2 font-medium min-w-[100px] text-center">Đặt chỗ</th>
+              <th className="p-2 font-medium min-w-[110px] text-right">Thu nhập</th>
+              <th className="p-2 font-medium min-w-[90px] text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="text-sm font-light">
             {filteredShows.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-gray-400">
+                <td colSpan="7" className="p-8 text-center text-gray-400">
                   Không tìm thấy suất chiếu nào
                 </td>
               </tr>
             ) : (
               filteredShows.map((show , index)=> (
                 <tr key={index} className="border-b border-primary/10 bg-primary/5 even:bg-primary/10" >
-                  <td className="p-2 min-w-45 pl-5">{show.movie?.title || 'N/A'}</td>
+                  <td className="p-2 pl-5">
+                    <span className="line-clamp-2">{show.movie?.title || 'N/A'}</span>
+                  </td>
                   <td className="p-2">
                     {show.hall ? (
                       <div className="flex flex-col">
-                        <span className="font-medium">{show.hall.name}</span>
+                        <span className="font-medium text-sm">{show.hall.name}</span>
                         <span className="text-xs text-gray-400">Phòng {show.hall.hallNumber} - {show.hall.type}</span>
                       </div>
                     ) : 'N/A'}
                   </td>
                   <td className="p-2">
-                    <div className="flex flex-col">
-                      <span>{dateFormat(show.showDateTime)}</span>
+                    <div className="flex flex-col whitespace-nowrap">
+                      <span className="text-sm">{dateFormat(show.showDateTime)}</span>
                       <span className="text-xs text-gray-400">{isoTimeFormat(show.showDateTime)}</span>
                     </div>
                   </td>
-                  <td className="p-2">{Object.keys(show.occupiedSeats || {}).length}</td>
-                  <td className="p-2">{vndFormat(Object.keys(show.occupiedSeats || {}).length * (show.showPrice || 0))}</td>
                   <td className="p-2">
-                    <button
-                      onClick={() => handleCancelShow(show._id)}
-                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors flex items-center gap-1.5 text-sm"
-                      title="Hủy chương trình"
-                    >
-                      <X className="w-4 h-4" />
-                      <span className="max-md:hidden">Hủy</span>
-                    </button>
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                      show.status === 'upcoming' ? 'bg-blue-500/20 text-blue-400' :
+                      show.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                      show.status === 'completed' ? 'bg-gray-500/20 text-gray-400' :
+                      show.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
+                      'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {show.status === 'upcoming' ? 'Sắp chiếu' :
+                       show.status === 'active' ? 'Đang chiếu' :
+                       show.status === 'completed' ? 'Đã hoàn thành' :
+                       show.status === 'cancelled' ? 'Đã hủy' :
+                       show.status || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="p-2 text-center">{Object.keys(show.occupiedSeats || {}).length}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{vndFormat(Object.keys(show.occupiedSeats || {}).length * (show.showPrice || 0))}</td>
+                  <td className="p-2 text-center">
+                    {show.status !== 'cancelled' && show.status !== 'completed' && (
+                      <button
+                        onClick={() => handleCancelShow(show._id)}
+                        className="px-2 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                        title="Hủy chương trình"
+                      >
+                        <X className="w-4 h-4" />
+                        <span className="hidden md:inline">Hủy</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

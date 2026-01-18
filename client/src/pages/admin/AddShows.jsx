@@ -66,6 +66,21 @@ const AddShows = () => {
     if(!dateTimeInput) return;
     const [date, time] = dateTimeInput.split("T")
     if (!date || !time) return;
+    
+    // Kiểm tra giới hạn 90 ngày
+    const MAX_DAYS_AHEAD = 90;
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxAllowedDate = new Date(today);
+    maxAllowedDate.setDate(maxAllowedDate.getDate() + MAX_DAYS_AHEAD);
+    
+    if (selectedDate > maxAllowedDate) {
+      const maxDateStr = maxAllowedDate.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      toast.error(`Chỉ có thể thêm suất chiếu tối đa ${MAX_DAYS_AHEAD} ngày trong tương lai (tối đa đến ${maxDateStr})`);
+      return;
+    }
+    
     setDateTimeSelection((prev) => {
       const times = prev[date] || [];
       if(!times.includes(time)) {
@@ -403,9 +418,29 @@ const AddShows = () => {
       <div className="mt-6">
           <label className="block text-sm font-medium mb-2">Chọn ngày và giờ</label>
           <div className="inline-flex gap-5 border border-gray-600 p-1 pl-3 rounded-lg">
-            <input type="datetime-local"  value={dateTimeInput} onChange={(e) => setDateTimeInput(e.target.value)} className="outline-none rounded-md"/>
+            <input 
+              type="datetime-local"  
+              value={dateTimeInput} 
+              onChange={(e) => setDateTimeInput(e.target.value)}
+              min={(() => {
+                const today = new Date().toISOString().slice(0, 16);
+                return today;
+              })()}
+              max={(() => {
+                const maxDate = new Date();
+                maxDate.setDate(maxDate.getDate() + 90);
+                return maxDate.toISOString().slice(0, 16);
+              })()}
+              className="outline-none rounded-md"
+            />
             <button onClick={handleDateTimeAdd} className="bg-primary/80 text-white px-3 py-2 text-sm rounded-lg hover:bg-primary cursor-pointer " > Thêm thời gian </button>
           </div>
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Giới hạn: Có thể thêm suất chiếu tối đa <span className="text-primary font-medium">90 ngày</span> trong tương lai
+          </p>
       </div>
       {Object.keys(dateTimeSelection).length > 0 && (
         <div className="mt-6">
