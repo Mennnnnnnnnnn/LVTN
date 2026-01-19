@@ -239,10 +239,18 @@ export const updateMoviesWithTrailers = async (req, res) => {
                     }
                 });
 
-                // Find the first YouTube trailer
-                const trailer = data.results.find(
+                // ✅ Ưu tiên trailer tiếng Việt, nếu không có thì lấy tiếng Anh
+                const allTrailers = data.results.filter(
                     video => video.type === 'Trailer' && video.site === 'YouTube'
                 );
+                
+                let trailer = allTrailers.find(video => video.iso_639_1 === 'vi'); // Ưu tiên tiếng Việt
+                if (!trailer) {
+                    trailer = allTrailers.find(video => video.iso_639_1 === 'en'); // Fallback sang tiếng Anh
+                }
+                if (!trailer) {
+                    trailer = allTrailers[0]; // Nếu không có cả hai, lấy trailer đầu tiên
+                }
 
                 if (trailer) {
                     movie.trailer_key = trailer.key;

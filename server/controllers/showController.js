@@ -227,10 +227,18 @@ export const addShow = async (req, res) => {
             const movieCreditsData = movieCreditsResponse.data;
             const movieVideosData = movieVideosResponse.data;
 
-            // Find the first YouTube trailer
-            const trailer = movieVideosData.results.find(
+            // ✅ Ưu tiên trailer tiếng Việt, nếu không có thì lấy tiếng Anh
+            const allTrailers = movieVideosData.results.filter(
                 video => video.type === 'Trailer' && video.site === 'YouTube'
             );
+            
+            let trailer = allTrailers.find(video => video.iso_639_1 === 'vi'); // Ưu tiên tiếng Việt
+            if (!trailer) {
+                trailer = allTrailers.find(video => video.iso_639_1 === 'en'); // Fallback sang tiếng Anh
+            }
+            if (!trailer) {
+                trailer = allTrailers[0]; // Nếu không có cả hai, lấy trailer đầu tiên
+            }
 
             // ✅ Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
             let overview = movieApiData.overview;
@@ -522,9 +530,18 @@ export const getShow = async (req, res) => {
                 const movieCreditsData = movieCreditsResponse.data;
                 const movieVideosData = movieVideosResponse.data;
 
-                const trailer = movieVideosData.results.find(
+                // ✅ Ưu tiên trailer tiếng Việt, nếu không có thì lấy tiếng Anh
+                const allTrailers = movieVideosData.results.filter(
                     video => video.type === 'Trailer' && video.site === 'YouTube'
                 );
+                
+                let trailer = allTrailers.find(video => video.iso_639_1 === 'vi'); // Ưu tiên tiếng Việt
+                if (!trailer) {
+                    trailer = allTrailers.find(video => video.iso_639_1 === 'en'); // Fallback sang tiếng Anh
+                }
+                if (!trailer) {
+                    trailer = allTrailers[0]; // Nếu không có cả hai, lấy trailer đầu tiên
+                }
 
                 // Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
                 let overview = movieApiData.overview;
