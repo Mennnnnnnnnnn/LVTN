@@ -3,7 +3,6 @@ import HeroSection from '../components/HeroSection';
 import FeaturedSection from '../components/FeaturedSection';
 import UpcomingSection from '../components/UpcomingSection';
 import TrailersSection from '../components/TrailersSection';
-import PromotionBanner from '../components/PromotionBanner';
 
 const Home = () => {
   return (
@@ -12,7 +11,6 @@ const Home = () => {
       <FeaturedSection />
       <UpcomingSection />
       <TrailersSection />
-      <PromotionBanner />
     </>
   )
 }

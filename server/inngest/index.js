@@ -105,95 +105,108 @@ const sendBookingConfirmationEmail = inngest.createFunction(
     async ({ event, step }) => {
         const { bookingId } = event.data;
 
-        const booking = await Booking.findById(bookingId).populate({
-            path: 'show',
-            populate: [
-                { path: 'movie', model: 'Movie' },
-                { path: 'hall', model: 'CinemaHall' }
-            ]
-        }).populate('user').populate('promotionApplied');
-
-        // Tạo QR code chứa thông tin booking
-        const qrData = JSON.stringify({
-            bookingId: booking._id,
-            userId: booking.user._id,
-            showId: booking.show._id,
-            seats: booking.bookedSeats
+        // Lấy thông tin booking với step.run để có retry
+        const booking = await step.run('get-booking-info', async () => {
+            return await Booking.findById(bookingId).populate({
+                path: 'show',
+                populate: [
+                    { path: 'movie', model: 'Movie' },
+                    { path: 'hall', model: 'CinemaHall' }
+                ]
+            }).populate('user').populate('promotionApplied');
         });
 
-        // Generate QR code as buffer, then convert to base64
-        const qrCodeBuffer = await QRCode.toBuffer(qrData, {
-            width: 250,
-            margin: 2,
-            type: 'png',
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
-        });
+        if (!booking) {
+            console.error('Booking not found:', bookingId);
+            return { message: 'Booking not found' };
+        }
 
-        // Convert buffer to base64 string (without data URI prefix)
-        const qrCodeBase64 = qrCodeBuffer.toString('base64');
+        // Tạo QR code và chuẩn bị email content với step.run
+        const emailData = await step.run('prepare-email-content', async () => {
+            // Tạo QR code chứa thông tin booking
+            const qrData = JSON.stringify({
+                bookingId: booking._id,
+                userId: booking.user._id,
+                showId: booking.show._id,
+                seats: booking.bookedSeats
+            });
 
-        // Format date and time
-        const showDate = new Date(booking.show.showDateTime).toLocaleDateString('vi-VN', {
-            timeZone: 'Asia/Ho_Chi_Minh',
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-
-        const showTime = new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN', {
-            timeZone: 'Asia/Ho_Chi_Minh',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-
-        // Format seats as badges
-        const seatBadges = booking.bookedSeats.map(seat =>
-            `<span style="display: inline-block; background: #F84565; color: white; padding: 6px 12px; margin: 4px; border-radius: 6px; font-weight: 600; font-size: 13px;">${seat}</span>`
-        ).join('');
-
-        // Tính giá gốc (nếu không có thì dùng amount + discountAmount)
-        const originalAmount = booking.originalAmount || (booking.amount + (booking.discountAmount || 0));
-        const discountAmount = booking.discountAmount || 0;
-        const hasDiscount = booking.promotionApplied && discountAmount > 0;
-
-        // Log để debug
-        console.log('📧 Email booking info:', {
-            bookingId: booking._id,
-            originalAmount,
-            discountAmount,
-            finalAmount: booking.amount,
-            hasDiscount,
-            promotionApplied: booking.promotionApplied ? booking.promotionApplied.name : 'None'
-        });
-
-        // Tạo phần HTML cho khuyến mãi
-        const discountHTML = hasDiscount ? `
-            <tr>
-                <td colspan="2" style="padding: 12px 0;">
-                    <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); border-radius: 10px; padding: 15px; text-align: center;">
-                        <p style="margin: 0 0 5px 0; color: white; font-size: 13px;">🎉 KHUYẾN MÃI ĐÃ ÁP DỤNG</p>
-                        <p style="margin: 0 0 8px 0; color: white; font-size: 16px; font-weight: 700;">${booking.promotionApplied.name}</p>
-                        <p style="margin: 0; color: #ffe66d; font-size: 20px; font-weight: 700;">-${booking.promotionApplied.discountPercent}% (Tiết kiệm ${vndFormat(discountAmount)})</p>
-                    </div>
-                </td>
-            </tr>
-        ` : '';
-
-        // inngest gửi email với QR code attachment
-        await sendEmail({
-            to: booking.user.email,
-            subject: `🎬 Xác nhận đặt vé - ${booking.show.movie.title}`,
-            attachments: [
-                {
-                    name: 'qrcode.png',
-                    content: qrCodeBase64
+            // Generate QR code as buffer, then convert to base64
+            const qrCodeBuffer = await QRCode.toBuffer(qrData, {
+                width: 250,
+                margin: 2,
+                type: 'png',
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
                 }
-            ],
-            body: `
+            });
+
+            // Convert buffer to base64 string (without data URI prefix)
+            const qrCodeBase64 = qrCodeBuffer.toString('base64');
+
+            // Format date and time
+            const showDate = new Date(booking.show.showDateTime).toLocaleDateString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const showTime = new Date(booking.show.showDateTime).toLocaleTimeString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Format seats as badges
+            const seatBadges = booking.bookedSeats.map(seat =>
+                `<span style="display: inline-block; background: #F84565; color: white; padding: 6px 12px; margin: 4px; border-radius: 6px; font-weight: 600; font-size: 13px;">${seat}</span>`
+            ).join('');
+
+            // Tính giá gốc (nếu không có thì dùng amount + discountAmount)
+            const originalAmount = booking.originalAmount || (booking.amount + (booking.discountAmount || 0));
+            const discountAmount = booking.discountAmount || 0;
+            const hasDiscount = booking.promotionApplied && discountAmount > 0;
+
+            // Tạo phần HTML cho khuyến mãi
+            const discountHTML = hasDiscount ? `
+                <tr>
+                    <td colspan="2" style="padding: 12px 0;">
+                        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); border-radius: 10px; padding: 15px; text-align: center;">
+                            <p style="margin: 0 0 5px 0; color: white; font-size: 13px;">🎉 KHUYẾN MÃI ĐÃ ÁP DỤNG</p>
+                            <p style="margin: 0 0 8px 0; color: white; font-size: 16px; font-weight: 700;">${booking.promotionApplied.name}</p>
+                            <p style="margin: 0; color: #ffe66d; font-size: 20px; font-weight: 700;">-${booking.promotionApplied.discountPercent}% (Tiết kiệm ${vndFormat(discountAmount)})</p>
+                        </div>
+                    </td>
+                </tr>
+            ` : '';
+
+            return {
+                qrCodeBase64,
+                showDate,
+                showTime,
+                seatBadges,
+                originalAmount,
+                discountAmount,
+                hasDiscount,
+                discountHTML
+            };
+        });
+
+        // Gửi email với step.run để có retry
+        await step.run('send-confirmation-email', async () => {
+            await sendEmail({
+                to: booking.user.email,
+                subject: `🎬 Xác nhận đặt vé - ${booking.show.movie.title}`,
+                attachments: [
+                    {
+                        name: 'qrcode.png',
+                        content: emailData.qrCodeBase64
+                    }
+                ],
+                body: `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px;">
                     <!-- Header -->
                     <div style="background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
@@ -219,11 +232,11 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Ngày chiếu:</td>
-                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${showDate}</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${emailData.showDate}</td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Giờ chiếu:</td>
-                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${showTime}</td>
+                                    <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 14px; text-align: right;">${emailData.showTime}</td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Phòng chiếu:</td>
@@ -256,7 +269,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                             <div style="margin-top: 15px;">
                                 <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Ghế đã chọn:</p>
                                 <div style="text-align: center;">
-                                    ${seatBadges}
+                                    ${emailData.seatBadges}
                                 </div>
                             </div>
                         </div>
@@ -273,9 +286,9 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; color: #666; font-size: 14px;">Tạm tính:</td>
-                                    <td style="padding: 8px 0; color: ${hasDiscount ? '#999' : '#333'}; font-weight: 600; font-size: 14px; text-align: right;${hasDiscount ? ' text-decoration: line-through;' : ''}">${vndFormat(originalAmount)}</td>
+                                    <td style="padding: 8px 0; color: ${emailData.hasDiscount ? '#999' : '#333'}; font-weight: 600; font-size: 14px; text-align: right;${emailData.hasDiscount ? ' text-decoration: line-through;' : ''}">${vndFormat(emailData.originalAmount)}</td>
                                 </tr>
-                                ${discountHTML}
+                                ${emailData.discountHTML}
                                 <tr style="border-top: 2px solid #e9ecef;">
                                     <td style="padding: 12px 0; color: #333; font-size: 16px; font-weight: 700;">Tổng thanh toán:</td>
                                     <td style="padding: 12px 0; color: #F84565; font-weight: 700; font-size: 20px; text-align: right;">${vndFormat(booking.amount)}</td>
@@ -332,8 +345,10 @@ const sendBookingConfirmationEmail = inngest.createFunction(
                     </div>
                 </div>
             `
-        })
+            });
+        });
 
+        return { message: 'Email sent successfully', bookingId };
     }
 )
 
