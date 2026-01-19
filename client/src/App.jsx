@@ -26,6 +26,7 @@ import ListUsers from './pages/admin/ListUsers';
 import ListCinemaHalls from './pages/admin/ListCinemaHalls';
 import ListPromotions from './pages/admin/ListPromotions';
 import ListBanners from './pages/admin/ListBanners';
+import Loading from './components/Loading';
 import { useAppContext } from './context/AppContext';
 import { SignIn, useAuth } from '@clerk/clerk-react';
 
@@ -55,6 +56,7 @@ const App = () => {
         <Route path='/terms-of-service' element={<TermsOfService />} />
         <Route path='/privacy-policy' element={<PrivacyPolicy />} />
         <Route path='/favorite' element={<Favorite />} />
+        <Route path='/loading/:nextUrl' element={<Loading />} />
         <Route path='/admin/*' element={
           !isLoaded ? (
             <div className='min-h-screen flex justify-center items-center bg-[#0f0f0f]'>

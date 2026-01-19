@@ -227,7 +227,7 @@ export const createBooking = async (req, res) => {
             metadata: {
                 bookingId: booking._id.toString(),
             },
-            expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // hết hạn sau 30 phút
+            expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // hết hạn sau 30 phút (Stripe yêu cầu tối thiểu 30 phút)
         })
         booking.paymentLink = session.url;
         await booking.save();

@@ -11,9 +11,9 @@ const Loading = () => {
     if(nextUrl){
       setTimeout(() => {
         navigate('/' + nextUrl);
-      }, 8000);
+      }, 2000); // Giảm từ 8 giây xuống 2 giây để user không phải đợi quá lâu
     }
-  },[]);
+  },[nextUrl, navigate]);
 
   return (
     <div className='flex justify-center items-center h-[80vh]'>

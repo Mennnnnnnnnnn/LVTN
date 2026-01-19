@@ -20,7 +20,7 @@ const About = () => {
           <h2 className="text-3xl font-bold text-white mb-6">Về dự án</h2>
           <div className="space-y-4 text-gray-300 leading-relaxed">
             <p>
-              QuickShow là một dự án phát triển năm <span className="text-white font-semibold">2024</span>, 
+              QuickShow là một dự án phát triển năm <span className="text-white font-semibold">2026</span>, 
               nhằm mục đích tạo ra một nền tảng đặt vé xem phim trực tuyến đơn giản và tiện lợi.
             </p>
             <p>
@@ -40,7 +40,7 @@ const About = () => {
       <div className="grid md:grid-cols-3 gap-8 mb-20">
         <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 rounded-xl p-8 border border-blue-500/30">
           <Calendar className="text-blue-400 mb-4" size={40} />
-          <h3 className="text-2xl font-bold text-white mb-2">2024</h3>
+          <h3 className="text-2xl font-bold text-white mb-2">2026</h3>
           <p className="text-gray-300">Năm phát triển</p>
         </div>
         <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 rounded-xl p-8 border border-purple-500/30">
