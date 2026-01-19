@@ -11,7 +11,7 @@ const Loading = () => {
     if(nextUrl){
       setTimeout(() => {
         navigate('/' + nextUrl);
-      }, 2000); // Giảm từ 8 giây xuống 2 giây để user không phải đợi quá lâu
+      }, 2000);
     }
   },[nextUrl, navigate]);
 

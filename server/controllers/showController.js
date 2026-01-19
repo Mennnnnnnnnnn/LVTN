@@ -114,7 +114,7 @@ export const getUpcomingMovies = async (req, res) => {
         // Filter: Loại phim tái chiếu quá cũ (trước 2020)
         const moviesWithRuntime = moviesResults
             .filter(movie => movie !== null && movie.originalYear >= 2020)
-            .slice(0, 20);
+            .slice(0, 40); // Tăng từ 20 lên 40 phim
 
         res.json({ success: true, movies: moviesWithRuntime });
 
@@ -135,7 +135,7 @@ export const getNowPlayingMovies = async (req, res) => {
 
         // Fetch runtime cho mỗi phim (parallel requests để nhanh)
         const moviesWithRuntime = await Promise.all(
-            data.results.slice(0, 20).map(async (movie) => {
+            data.results.slice(0, 40).map(async (movie) => { // Tăng từ 20 lên 40 phim
                 try {
                     // Kiểm tra xem movie đã có trong DB chưa
                     const existingMovie = await Movie.findById(movie.id);
@@ -227,17 +227,32 @@ export const addShow = async (req, res) => {
             const movieCreditsData = movieCreditsResponse.data;
             const movieVideosData = movieVideosResponse.data;
 
-            // ✅ Ưu tiên trailer tiếng Việt, nếu không có thì lấy tiếng Anh
-            const allTrailers = movieVideosData.results.filter(
-                video => video.type === 'Trailer' && video.site === 'YouTube'
+            // ✅ Tìm video trailer/teaser từ YouTube
+            // Ưu tiên: Trailer > Teaser > Clip > Featurette
+            const videoTypes = ['Trailer', 'Teaser', 'Clip', 'Featurette'];
+            const allVideos = movieVideosData.results.filter(
+                video => video.site === 'YouTube' && videoTypes.includes(video.type)
             );
             
-            let trailer = allTrailers.find(video => video.iso_639_1 === 'vi'); // Ưu tiên tiếng Việt
-            if (!trailer) {
-                trailer = allTrailers.find(video => video.iso_639_1 === 'en'); // Fallback sang tiếng Anh
-            }
-            if (!trailer) {
-                trailer = allTrailers[0]; // Nếu không có cả hai, lấy trailer đầu tiên
+            let trailer = null;
+            
+            // Tìm theo thứ tự ưu tiên: Trailer > Teaser > Clip > Featurette
+            for (const videoType of videoTypes) {
+                const videosOfType = allVideos.filter(v => v.type === videoType);
+                
+                // Ưu tiên tiếng Việt
+                trailer = videosOfType.find(video => video.iso_639_1 === 'vi');
+                if (trailer) break;
+                
+                // Fallback sang tiếng Anh
+                trailer = videosOfType.find(video => video.iso_639_1 === 'en');
+                if (trailer) break;
+                
+                // Nếu không có cả hai, lấy video đầu tiên của loại này
+                if (videosOfType.length > 0) {
+                    trailer = videosOfType[0];
+                    break;
+                }
             }
 
             // ✅ Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
@@ -530,17 +545,32 @@ export const getShow = async (req, res) => {
                 const movieCreditsData = movieCreditsResponse.data;
                 const movieVideosData = movieVideosResponse.data;
 
-                // ✅ Ưu tiên trailer tiếng Việt, nếu không có thì lấy tiếng Anh
-                const allTrailers = movieVideosData.results.filter(
-                    video => video.type === 'Trailer' && video.site === 'YouTube'
+                // ✅ Tìm video trailer/teaser từ YouTube
+                // Ưu tiên: Trailer > Teaser > Clip > Featurette
+                const videoTypes = ['Trailer', 'Teaser', 'Clip', 'Featurette'];
+                const allVideos = movieVideosData.results.filter(
+                    video => video.site === 'YouTube' && videoTypes.includes(video.type)
                 );
                 
-                let trailer = allTrailers.find(video => video.iso_639_1 === 'vi'); // Ưu tiên tiếng Việt
-                if (!trailer) {
-                    trailer = allTrailers.find(video => video.iso_639_1 === 'en'); // Fallback sang tiếng Anh
-                }
-                if (!trailer) {
-                    trailer = allTrailers[0]; // Nếu không có cả hai, lấy trailer đầu tiên
+                let trailer = null;
+                
+                // Tìm theo thứ tự ưu tiên: Trailer > Teaser > Clip > Featurette
+                for (const videoType of videoTypes) {
+                    const videosOfType = allVideos.filter(v => v.type === videoType);
+                    
+                    // Ưu tiên tiếng Việt
+                    trailer = videosOfType.find(video => video.iso_639_1 === 'vi');
+                    if (trailer) break;
+                    
+                    // Fallback sang tiếng Anh
+                    trailer = videosOfType.find(video => video.iso_639_1 === 'en');
+                    if (trailer) break;
+                    
+                    // Nếu không có cả hai, lấy video đầu tiên của loại này
+                    if (videosOfType.length > 0) {
+                        trailer = videosOfType[0];
+                        break;
+                    }
                 }
 
                 // Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
