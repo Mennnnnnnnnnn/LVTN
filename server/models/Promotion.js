@@ -25,6 +25,7 @@ const promotionSchema = new mongoose.Schema({
     showBanner: { type: Boolean, default: false }, // Có hiển thị banner không
     bannerOrder: { type: Number, default: 0 }, // Thứ tự hiển thị (số nhỏ hiển thị trước)
 
+
     // Default Banner fields - cho banner mặc định (thay thế Marvel)
     isDefaultBanner: { type: Boolean, default: false }, // Đánh dấu là banner mặc định
     defaultBannerMovieTitle: { type: String }, // Tên phim hiển thị
@@ -33,6 +34,7 @@ const promotionSchema = new mongoose.Schema({
     defaultBannerDuration: { type: String }, // Thời lượng phim
     defaultBannerDescription: { type: String }, // Mô tả ngắn
     defaultBannerBackground: { type: String }, // Background image URL
+
 
     createdBy: { type: String, ref: 'User' },
 }, { timestamps: true });

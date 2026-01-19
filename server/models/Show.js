@@ -8,6 +8,11 @@ const showSchema = new mongoose.Schema(
         endDateTime:{type: Date, required: true},
         showPrice:{type: Number, required: true},
         occupiedSeats:{type: Object, default: {}},
+        status:{
+            type: String,
+            enum: ['upcoming', 'active', 'completed', 'cancelled'],
+            default: 'upcoming'
+        },
     },
     {
         minimize: false,

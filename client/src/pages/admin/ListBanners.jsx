@@ -12,11 +12,13 @@ import {
     Loader2,
     XIcon,
     GripVertical,
+
     ExternalLink,
     Film,
     Save,
     Calendar,
     Clock
+
 } from 'lucide-react';
 
 const ListBanners = () => {
@@ -26,6 +28,7 @@ const ListBanners = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingPromotion, setEditingPromotion] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
 
     // Default banner state
     const [defaultBanner, setDefaultBanner] = useState(null);
@@ -45,6 +48,7 @@ const ListBanners = () => {
         defaultBannerDescription: '',
         defaultBannerBackground: ''
     });
+
 
     // Form state for banner
     const [formData, setFormData] = useState({
@@ -67,6 +71,7 @@ const ListBanners = () => {
                 const sorted = data.promotions.sort((a, b) => (a.bannerOrder || 0) - (b.bannerOrder || 0));
                 setPromotions(sorted);
 
+
                 // Find default banner
                 const defaultBannerPromo = data.promotions.find(p => p.type === 'default_banner' && p.isDefaultBanner);
                 if (defaultBannerPromo) {
@@ -87,6 +92,7 @@ const ListBanners = () => {
                         defaultBannerBackground: defaultBannerPromo.defaultBannerBackground || ''
                     });
                 }
+
             } else {
                 toast.error(data.message);
             }
@@ -219,6 +225,7 @@ const ListBanners = () => {
         });
     };
 
+
     // Save default banner
     const handleSaveDefaultBanner = async (e) => {
         e.preventDefault();
@@ -325,6 +332,7 @@ const ListBanners = () => {
                 <Title text2="Quản lý Banner" />
             </div>
 
+
             {/* Default Banner Section */}
             <div className='mb-8'>
                 <h3 className='text-lg font-semibold mb-4 flex items-center gap-2'>
@@ -426,6 +434,7 @@ const ListBanners = () => {
                 </div>
             </div>
 
+
             {/* Active Banners */}
             <div className='mb-8'>
                 <h3 className='text-lg font-semibold mb-4 flex items-center gap-2'>
@@ -434,6 +443,7 @@ const ListBanners = () => {
                     <span className='text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded ml-2'>
                         Slide sau banner mặc định
                     </span>
+
                 </h3>
 
                 {promotionsWithBanners.length === 0 ? (
@@ -448,8 +458,10 @@ const ListBanners = () => {
                             <div
                                 key={promotion._id}
                                 className={`p-4 rounded-xl border ${promotion.showBanner && isPromotionActiveNow(promotion)
+
                                     ? 'border-purple-500/50 bg-purple-500/5'
                                     : 'border-gray-700 bg-white/5 opacity-60'
+
                                     }`}
                             >
                                 <div className='flex gap-4'>
@@ -501,8 +513,10 @@ const ListBanners = () => {
                                         <button
                                             onClick={() => toggleBannerVisibility(promotion._id, promotion.showBanner)}
                                             className={`p-2 rounded-lg transition ${promotion.showBanner
+
                                                 ? 'text-green-400 hover:bg-green-500/20'
                                                 : 'text-gray-500 hover:bg-gray-700'
+
                                                 }`}
                                             title={promotion.showBanner ? 'Ẩn banner' : 'Hiện banner'}
                                         >
@@ -698,6 +712,7 @@ const ListBanners = () => {
                 </div>
             )}
 
+
             {/* Default Banner Modal */}
             {showDefaultBannerModal && (
                 <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'>
@@ -861,6 +876,7 @@ const ListBanners = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

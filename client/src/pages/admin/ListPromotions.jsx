@@ -35,6 +35,7 @@ const ListPromotions = () => {
         type: 'special',
         applicableDays: [],
         maxUsage: 0,
+
         maxUsagePerUser: 0,
         // Banner fields
         bannerImage: '',
@@ -50,6 +51,7 @@ const ListPromotions = () => {
         defaultBannerDuration: '',
         defaultBannerDescription: '',
         defaultBannerBackground: ''
+
     });
 
     const promotionTypes = [
@@ -103,6 +105,7 @@ const ListPromotions = () => {
             type: 'special',
             applicableDays: [],
             maxUsage: 0,
+
             maxUsagePerUser: 0,
             bannerImage: '',
             bannerTitle: '',
@@ -116,6 +119,7 @@ const ListPromotions = () => {
             defaultBannerDuration: '',
             defaultBannerDescription: '',
             defaultBannerBackground: ''
+
         });
         setEditingPromotion(null);
     };
@@ -138,6 +142,7 @@ const ListPromotions = () => {
             type: promotion.type,
             applicableDays: promotion.applicableDays || [],
             maxUsage: promotion.maxUsage || 0,
+
             maxUsagePerUser: promotion.maxUsagePerUser || 0,
             bannerImage: promotion.bannerImage || '',
             bannerTitle: promotion.bannerTitle || '',
@@ -151,6 +156,7 @@ const ListPromotions = () => {
             defaultBannerDuration: promotion.defaultBannerDuration || '',
             defaultBannerDescription: promotion.defaultBannerDescription || '',
             defaultBannerBackground: promotion.defaultBannerBackground || ''
+
         });
         setShowModal(true);
     };
@@ -338,6 +344,7 @@ const ListPromotions = () => {
                                             Giới hạn: {promotion.maxUsagePerUser} lượt/tài khoản
                                         </div>
                                     )}
+
                                     {promotion.isDefaultBanner && (
                                         <div className='mt-1 text-sm text-blue-400'>
                                             🎬 Đây là Banner mặc định trang chủ
@@ -348,6 +355,7 @@ const ListPromotions = () => {
                                             🖼️ Hiển thị banner khuyến mãi
                                         </div>
                                     )}
+
                                 </div>
                                 <div className='flex items-center gap-2'>
                                     <button
@@ -719,6 +727,7 @@ const ListPromotions = () => {
                                     </>
                                 )}
                             </div>
+
 
                             {/* Submit Button */}
                             <div className='flex gap-3 pt-4'>

@@ -148,8 +148,10 @@ export const createBooking = async (req, res) => {
         // Lưu giá gốc
         const originalAmount = totalAmount;
 
+
         // Kiểm tra và áp dụng khuyến mãi do user chọn hoặc tự động tìm khuyến mãi tốt nhất
         let activePromotion = null;
+
         let discountAmount = 0;
         let promotionId = null;
 
@@ -272,7 +274,7 @@ export const createBooking = async (req, res) => {
             metadata: {
                 bookingId: booking._id.toString(),
             },
-            expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // hết hạn sau 30 phút
+            expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // hết hạn sau 30 phút (Stripe yêu cầu tối thiểu 30 phút)
         })
         booking.paymentLink = session.url;
         await booking.save();

@@ -4,6 +4,27 @@ import Show from '../models/Show.js';
 import CinemaHall from '../models/CinemaHall.js';
 import { inngest } from '../inngest/index.js';
 
+// Helper function to automatically update status of expired shows to 'completed'
+const updateCompletedShows = async () => {
+    try {
+        const now = new Date();
+        const result = await Show.updateMany(
+            {
+                endDateTime: { $lt: now },
+                status: { $in: ['upcoming', 'active'] }
+            },
+            {
+                $set: { status: 'completed' }
+            }
+        );
+        if (result.modifiedCount > 0) {
+            console.log(`Updated ${result.modifiedCount} shows to completed status`);
+        }
+    } catch (error) {
+        console.error('Error updating completed shows:', error);
+    }
+};
+
 // API to get upcoming movies from TMDB API
 export const getUpcomingMovies = async (req, res) => {
     try {
@@ -93,7 +114,7 @@ export const getUpcomingMovies = async (req, res) => {
         // Filter: Loại phim tái chiếu quá cũ (trước 2020)
         const moviesWithRuntime = moviesResults
             .filter(movie => movie !== null && movie.originalYear >= 2020)
-            .slice(0, 20);
+            .slice(0, 40); // Tăng từ 20 lên 40 phim
 
         res.json({ success: true, movies: moviesWithRuntime });
 
@@ -114,7 +135,7 @@ export const getNowPlayingMovies = async (req, res) => {
 
         // Fetch runtime cho mỗi phim (parallel requests để nhanh)
         const moviesWithRuntime = await Promise.all(
-            data.results.slice(0, 20).map(async (movie) => {
+            data.results.slice(0, 40).map(async (movie) => { // Tăng từ 20 lên 40 phim
                 try {
                     // Kiểm tra xem movie đã có trong DB chưa
                     const existingMovie = await Movie.findById(movie.id);
@@ -206,10 +227,33 @@ export const addShow = async (req, res) => {
             const movieCreditsData = movieCreditsResponse.data;
             const movieVideosData = movieVideosResponse.data;
 
-            // Find the first YouTube trailer
-            const trailer = movieVideosData.results.find(
-                video => video.type === 'Trailer' && video.site === 'YouTube'
+            // ✅ Tìm video trailer/teaser từ YouTube
+            // Ưu tiên: Trailer > Teaser > Clip > Featurette
+            const videoTypes = ['Trailer', 'Teaser', 'Clip', 'Featurette'];
+            const allVideos = movieVideosData.results.filter(
+                video => video.site === 'YouTube' && videoTypes.includes(video.type)
             );
+            
+            let trailer = null;
+            
+            // Tìm theo thứ tự ưu tiên: Trailer > Teaser > Clip > Featurette
+            for (const videoType of videoTypes) {
+                const videosOfType = allVideos.filter(v => v.type === videoType);
+                
+                // Ưu tiên tiếng Việt
+                trailer = videosOfType.find(video => video.iso_639_1 === 'vi');
+                if (trailer) break;
+                
+                // Fallback sang tiếng Anh
+                trailer = videosOfType.find(video => video.iso_639_1 === 'en');
+                if (trailer) break;
+                
+                // Nếu không có cả hai, lấy video đầu tiên của loại này
+                if (videosOfType.length > 0) {
+                    trailer = videosOfType[0];
+                    break;
+                }
+            }
 
             // ✅ Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
             let overview = movieApiData.overview;
@@ -314,6 +358,23 @@ export const addShow = async (req, res) => {
                     continue;
                 }
 
+                // ✅ Validation: Giới hạn thêm suất chiếu tối đa 90 ngày trong tương lai
+                const MAX_DAYS_AHEAD = 90; // Giới hạn 90 ngày
+                const maxAllowedDate = new Date(today);
+                maxAllowedDate.setDate(maxAllowedDate.getDate() + MAX_DAYS_AHEAD);
+                maxAllowedDate.setHours(23, 59, 59, 999);
+
+                if (showDateTime.getTime() > maxAllowedDate.getTime()) {
+                    conflicts.push({
+                        requestedTime: time,
+                        requestedDate: showDate,
+                        conflictWith: 'Hệ thống',
+                        conflictTime: '',
+                        reason: `Không thể tạo suất chiếu quá ${MAX_DAYS_AHEAD} ngày trong tương lai (tối đa đến ${maxAllowedDate.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' })})`
+                    });
+                    continue;
+                }
+
                 // Check for conflicts with existing shows in the same hall (DB)
                 const conflictingShows = await Show.find({
                     hall: hallId,
@@ -383,6 +444,7 @@ export const addShow = async (req, res) => {
                     endDateTime,
                     showPrice,
                     occupiedSeats: {},
+                    status: 'upcoming',
                 });
             }
         }
@@ -428,7 +490,13 @@ export const addShow = async (req, res) => {
 //API to get all shows from the database
 export const getShows = async (req, res) => {
     try {
-        const shows = await Show.find({ showDateTime: { $gte: new Date() } }).populate('movie').sort({ showDateTime: 1 });
+        // Update completed shows before querying
+        await updateCompletedShows();
+        
+        const shows = await Show.find({ 
+            showDateTime: { $gte: new Date() },
+            status: { $nin: ['completed', 'cancelled'] }
+        }).populate('movie').sort({ showDateTime: 1 });
         //filter unique shows
         const uniqueShows = new Set(shows.map(show => show.movie));
 
@@ -445,7 +513,11 @@ export const getShow = async (req, res) => {
     try {
         const { movieId } = req.params;
         //nhận tất cả các chương trình sắp tới của bộ phim
-        const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } }).populate('hall');
+        const shows = await Show.find({ 
+            movie: movieId, 
+            showDateTime: { $gte: new Date() },
+            status: { $nin: ['completed', 'cancelled'] }
+        }).populate('hall');
         let movie = await Movie.findById(movieId);
 
         // Nếu movie chưa có trong DB (phim sắp khởi chiếu), fetch từ TMDB
@@ -473,9 +545,33 @@ export const getShow = async (req, res) => {
                 const movieCreditsData = movieCreditsResponse.data;
                 const movieVideosData = movieVideosResponse.data;
 
-                const trailer = movieVideosData.results.find(
-                    video => video.type === 'Trailer' && video.site === 'YouTube'
+                // ✅ Tìm video trailer/teaser từ YouTube
+                // Ưu tiên: Trailer > Teaser > Clip > Featurette
+                const videoTypes = ['Trailer', 'Teaser', 'Clip', 'Featurette'];
+                const allVideos = movieVideosData.results.filter(
+                    video => video.site === 'YouTube' && videoTypes.includes(video.type)
                 );
+                
+                let trailer = null;
+                
+                // Tìm theo thứ tự ưu tiên: Trailer > Teaser > Clip > Featurette
+                for (const videoType of videoTypes) {
+                    const videosOfType = allVideos.filter(v => v.type === videoType);
+                    
+                    // Ưu tiên tiếng Việt
+                    trailer = videosOfType.find(video => video.iso_639_1 === 'vi');
+                    if (trailer) break;
+                    
+                    // Fallback sang tiếng Anh
+                    trailer = videosOfType.find(video => video.iso_639_1 === 'en');
+                    if (trailer) break;
+                    
+                    // Nếu không có cả hai, lấy video đầu tiên của loại này
+                    if (videosOfType.length > 0) {
+                        trailer = videosOfType[0];
+                        break;
+                    }
+                }
 
                 // Fallback overview sang tiếng Anh nếu tiếng Việt rỗng
                 let overview = movieApiData.overview;
@@ -579,7 +675,8 @@ export const searchMovies = async (req, res) => {
         // Get all shows with populated movie data
         const shows = await Show.find({
             showDateTime: { $gte: new Date() },
-            hall: { $exists: true }
+            hall: { $exists: true },
+            status: { $nin: ['completed', 'cancelled'] }
         }).populate('movie').populate('hall');
 
         // Filter active shows
@@ -628,7 +725,8 @@ export const getGenres = async (req, res) => {
         // Get all shows with populated movie data
         const shows = await Show.find({
             showDateTime: { $gte: new Date() },
-            hall: { $exists: true }
+            hall: { $exists: true },
+            status: { $nin: ['completed', 'cancelled'] }
         }).populate('movie').populate('hall');
 
         // Filter active shows

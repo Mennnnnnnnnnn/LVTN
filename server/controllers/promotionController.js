@@ -16,12 +16,14 @@ export const getAllPromotions = async (req, res) => {
 export const createPromotion = async (req, res) => {
     try {
         const { userId } = req.auth();
+
         const {
             name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage, maxUsagePerUser,
             bannerImage, bannerTitle, bannerSubtitle, showBanner, bannerOrder,
             isDefaultBanner, defaultBannerMovieTitle, defaultBannerGenres, defaultBannerYear,
             defaultBannerDuration, defaultBannerDescription, defaultBannerBackground
         } = req.body;
+
 
         // Validate - Banner mặc định không cần discountPercent
         if (!name || !startDate || !endDate) {
@@ -57,6 +59,7 @@ export const createPromotion = async (req, res) => {
             bannerSubtitle: bannerSubtitle || '',
             showBanner: showBanner || false,
             bannerOrder: bannerOrder || 0,
+
             // Default banner fields
             isDefaultBanner: isDefaultBanner || false,
             defaultBannerMovieTitle: defaultBannerMovieTitle || '',
@@ -65,6 +68,7 @@ export const createPromotion = async (req, res) => {
             defaultBannerDuration: defaultBannerDuration || '',
             defaultBannerDescription: defaultBannerDescription || '',
             defaultBannerBackground: defaultBannerBackground || '',
+
             createdBy: userId
         });
 
@@ -79,12 +83,14 @@ export const createPromotion = async (req, res) => {
 export const updatePromotion = async (req, res) => {
     try {
         const { promotionId } = req.params;
+
         const {
             name, description, discountPercent, startDate, endDate, type, applicableDays, maxUsage, maxUsagePerUser, isActive,
             bannerImage, bannerTitle, bannerSubtitle, showBanner, bannerOrder,
             isDefaultBanner, defaultBannerMovieTitle, defaultBannerGenres, defaultBannerYear,
             defaultBannerDuration, defaultBannerDescription, defaultBannerBackground
         } = req.body;
+
 
         const promotion = await Promotion.findById(promotionId);
         if (!promotion) {
@@ -107,6 +113,7 @@ export const updatePromotion = async (req, res) => {
         if (bannerSubtitle !== undefined) promotion.bannerSubtitle = bannerSubtitle;
         if (showBanner !== undefined) promotion.showBanner = showBanner;
         if (bannerOrder !== undefined) promotion.bannerOrder = bannerOrder;
+
         // Default banner fields
         if (isDefaultBanner !== undefined) promotion.isDefaultBanner = isDefaultBanner;
         if (defaultBannerMovieTitle !== undefined) promotion.defaultBannerMovieTitle = defaultBannerMovieTitle;
@@ -115,6 +122,7 @@ export const updatePromotion = async (req, res) => {
         if (defaultBannerDuration !== undefined) promotion.defaultBannerDuration = defaultBannerDuration;
         if (defaultBannerDescription !== undefined) promotion.defaultBannerDescription = defaultBannerDescription;
         if (defaultBannerBackground !== undefined) promotion.defaultBannerBackground = defaultBannerBackground;
+
 
         await promotion.save();
         res.json({ success: true, message: 'Cập nhật khuyến mãi thành công', promotion });
@@ -215,8 +223,10 @@ export const getPromotionBanners = async (req, res) => {
             startDate: { $lte: now },
             endDate: { $gte: now }
         })
+
             // ✅ thêm _id để frontend click qua detail
             .select('_id name discountPercent bannerImage bannerTitle bannerSubtitle bannerOrder startDate endDate')
+
             .sort({ bannerOrder: 1 });
 
         res.json({ success: true, banners });
@@ -225,6 +235,7 @@ export const getPromotionBanners = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
 // ✅ Lấy chi tiết 1 banner khuyến mãi theo ID (Public)
 export const getPromotionBannerDetail = async (req, res) => {
     try {
@@ -410,4 +421,5 @@ export const checkPromotionForUser = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
 

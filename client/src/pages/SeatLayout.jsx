@@ -362,6 +362,7 @@ const SeatLayout = () => {
         },
       });
       if (data.success) {
+        // Redirect trực tiếp đến Stripe Checkout
         window.location.href = data.url;
       } else {
         toast.error(data.message);

@@ -85,9 +85,33 @@ export const updateFavorite = async (req, res) => {
                     const movieCreditsData = movieCreditsResponse.data;
                     const movieVideosData = movieVideosResponse.data;
 
-                    const trailer = movieVideosData.results.find(
-                        video => video.type === 'Trailer' && video.site === 'YouTube'
+                    // ✅ Tìm video trailer/teaser từ YouTube
+                    // Ưu tiên: Trailer > Teaser > Clip > Featurette
+                    const videoTypes = ['Trailer', 'Teaser', 'Clip', 'Featurette'];
+                    const allVideos = movieVideosData.results.filter(
+                        video => video.site === 'YouTube' && videoTypes.includes(video.type)
                     );
+                    
+                    let trailer = null;
+                    
+                    // Tìm theo thứ tự ưu tiên: Trailer > Teaser > Clip > Featurette
+                    for (const videoType of videoTypes) {
+                        const videosOfType = allVideos.filter(v => v.type === videoType);
+                        
+                        // Ưu tiên tiếng Việt
+                        trailer = videosOfType.find(video => video.iso_639_1 === 'vi');
+                        if (trailer) break;
+                        
+                        // Fallback sang tiếng Anh
+                        trailer = videosOfType.find(video => video.iso_639_1 === 'en');
+                        if (trailer) break;
+                        
+                        // Nếu không có cả hai, lấy video đầu tiên của loại này
+                        if (videosOfType.length > 0) {
+                            trailer = videosOfType[0];
+                            break;
+                        }
+                    }
 
                     // Fallback overview sang tiếng Anh nếu cần
                     let overview = movieApiData.overview;
