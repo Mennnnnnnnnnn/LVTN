@@ -17,6 +17,7 @@ import Footer from './components/Footer';
 import Movies from './pages/Movies';
 import UpcomingMovies from './pages/UpcomingMovies';
 import SearchMovies from './pages/SearchMovies';
+import PromotionDetailPage from "./pages/PromotionDetailPage";
 import Layout from './pages/admin/Layout';
 import Dashboard from './pages/admin/Dashboard';
 import AddShows from './pages/admin/AddShows';
@@ -25,6 +26,7 @@ import ListBookings from './pages/admin/ListBookings';
 import ListUsers from './pages/admin/ListUsers';
 import ListCinemaHalls from './pages/admin/ListCinemaHalls';
 import ListPromotions from './pages/admin/ListPromotions';
+import ListBanners from './pages/admin/ListBanners';
 import { useAppContext } from './context/AppContext';
 import { SignIn, useAuth } from '@clerk/clerk-react';
 
@@ -54,6 +56,7 @@ const App = () => {
         <Route path='/terms-of-service' element={<TermsOfService />} />
         <Route path='/privacy-policy' element={<PrivacyPolicy />} />
         <Route path='/favorite' element={<Favorite />} />
+        <Route path='/promotion/:promotionId' element={<PromotionDetailPage />} />
         <Route path='/admin/*' element={
           !isLoaded ? (
             <div className='min-h-screen flex justify-center items-center bg-[#0f0f0f]'>
@@ -77,6 +80,7 @@ const App = () => {
           <Route path="list-bookings" element={<ListBookings />} />
           <Route path="list-users" element={<ListUsers />} />
           <Route path="promotions" element={<ListPromotions />} />
+          <Route path="banners" element={<ListBanners />} />
         </Route>
       </Routes>
       {!isAdminRoute && <Footer />}

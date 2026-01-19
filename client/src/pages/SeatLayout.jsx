@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'
 import { assets, dummyDateTimeData, dummyShowsData } from '../assets/assets'
 import Loading from '../components/Loading';
-import { ArrowRightIcon, ClockIcon, Gift, Percent } from 'lucide-react';
+import { ArrowRightIcon, ClockIcon, Gift, Percent, ChevronDown, Check, X } from 'lucide-react';
 import isoTimeFormat from '../lib/isoTimeFormat';
 import BlurCircle from '../components/BlurCircle';
 import { vndFormat } from '../lib/currencyFormat';
@@ -17,7 +17,9 @@ const SeatLayout = () => {
   const [hall, setHall] = useState(null)
   const [currentShowPrice, setCurrentShowPrice] = useState(0) // Giá của show được chọn
   const [isEveningShow, setIsEveningShow] = useState(false) // Suất tối
-  const [activePromotion, setActivePromotion] = useState(null) // Khuyến mãi hiện tại
+  const [selectedPromotion, setSelectedPromotion] = useState(null) // Khuyến mãi user chọn
+  const [availablePromotions, setAvailablePromotions] = useState([]) // Danh sách khuyến mãi có thể chọn
+  const [showPromotionPicker, setShowPromotionPicker] = useState(false) // Hiện/ẩn picker
 
   const [occupiedSeats, setOccupiedSeats] = useState([])
 
@@ -306,22 +308,34 @@ const SeatLayout = () => {
   // Tính tổng tiền sau khuyến mãi
   const calculateDiscountedTotal = () => {
     const total = calculateTotalAmount();
-    if (activePromotion) {
-      const discount = Math.floor(total * activePromotion.discountPercent / 100);
+    if (selectedPromotion && selectedPromotion.canUse) {
+      const discount = Math.floor(total * selectedPromotion.discountPercent / 100);
       return total - discount;
     }
     return total;
   };
 
-  // Fetch khuyến mãi đang áp dụng
-  const fetchActivePromotion = async () => {
+  // Fetch danh sách khuyến mãi cho user
+  const fetchAvailablePromotions = async () => {
     try {
-      const { data } = await axios.get('/api/promotion/active');
-      if (data.success && data.promotion) {
-        setActivePromotion(data.promotion);
+      const token = await getToken();
+      if (!token) return; // User chưa đăng nhập
+
+      const { data } = await axios.get('/api/promotion/available-for-user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (data.success && data.promotions) {
+        setAvailablePromotions(data.promotions);
+        // Tự động chọn khuyến mãi tốt nhất có thể dùng
+        const bestPromo = data.promotions
+          .filter(p => p.canUse)
+          .sort((a, b) => b.discountPercent - a.discountPercent)[0];
+        if (bestPromo) {
+          setSelectedPromotion(bestPromo);
+        }
       }
     } catch (error) {
-      console.error('Error fetching promotion:', error);
+      console.error('Error fetching promotions:', error);
     }
   };
 
@@ -340,7 +354,8 @@ const SeatLayout = () => {
       }
       const { data } = await axios.post('/api/booking/create', {
         showId: selectedTime.showId,
-        selectedSeats
+        selectedSeats,
+        promotionId: selectedPromotion?.canUse ? selectedPromotion._id : null
       }, {
         headers: {
           Authorization: `Bearer ${await getToken()}`,
@@ -358,7 +373,7 @@ const SeatLayout = () => {
 
   useEffect(() => {
     getShow()
-    fetchActivePromotion()
+    fetchAvailablePromotions()
   }, [])
 
   useEffect(() => {
@@ -454,24 +469,115 @@ const SeatLayout = () => {
           )}
         </div>
 
-        {/* Banner khuyến mãi */}
-        {activePromotion && (
+        {/* Banner chọn khuyến mãi */}
+        {user && availablePromotions.length > 0 && (
           <div className='mt-8 w-full max-w-md'>
-            <div className='bg-gradient-to-r from-green-500/20 to-emerald-500/10 border-2 border-green-500/30 rounded-xl p-4 flex items-center gap-3'>
-              <div className='p-2 bg-green-500/20 rounded-full'>
-                <Gift className='w-6 h-6 text-green-400' />
-              </div>
-              <div className='flex-1'>
+            <div className='bg-gradient-to-r from-green-500/20 to-emerald-500/10 border-2 border-green-500/30 rounded-xl p-4'>
+              <div className='flex items-center justify-between mb-3'>
                 <div className='flex items-center gap-2'>
-                  <span className='font-semibold text-green-400'>{activePromotion.name}</span>
-                  <span className='px-2 py-0.5 bg-green-500/30 text-green-300 text-xs rounded-full font-bold'>
-                    -{activePromotion.discountPercent}%
-                  </span>
+                  <div className='p-2 bg-green-500/20 rounded-full'>
+                    <Gift className='w-5 h-5 text-green-400' />
+                  </div>
+                  <span className='font-semibold text-green-400'>Chọn khuyến mãi</span>
                 </div>
-                {activePromotion.description && (
-                  <p className='text-sm text-gray-400 mt-1'>{activePromotion.description}</p>
-                )}
+                <button
+                  onClick={() => setShowPromotionPicker(!showPromotionPicker)}
+                  className='flex items-center gap-1 text-sm text-gray-400 hover:text-white transition'
+                >
+                  {showPromotionPicker ? 'Đóng' : 'Xem tất cả'}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showPromotionPicker ? 'rotate-180' : ''}`} />
+                </button>
               </div>
+
+              {/* Khuyến mãi đang chọn */}
+              {selectedPromotion ? (
+                <div className='flex items-center justify-between bg-green-500/10 rounded-lg p-3'>
+                  <div className='flex items-center gap-2'>
+                    <Check className='w-5 h-5 text-green-400' />
+                    <div>
+                      <span className='font-medium'>{selectedPromotion.name}</span>
+                      <span className='ml-2 px-2 py-0.5 bg-green-500/30 text-green-300 text-xs rounded-full font-bold'>
+                        -{selectedPromotion.discountPercent}%
+                      </span>
+                      {!selectedPromotion.canUse && (
+                        <span className='ml-2 text-xs text-red-400'>(Đã hết lượt)</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedPromotion(null)}
+                    className='p-1 hover:bg-red-500/20 rounded-full transition'
+                    title='Bỏ chọn'
+                  >
+                    <X className='w-4 h-4 text-red-400' />
+                  </button>
+                </div>
+              ) : (
+                <p className='text-sm text-gray-400'>Chưa chọn khuyến mãi nào</p>
+              )}
+
+              {/* Danh sách khuyến mãi */}
+              {showPromotionPicker && (
+                <div className='mt-3 space-y-2 max-h-60 overflow-y-auto'>
+                  {availablePromotions.map((promo) => (
+                    <button
+                      key={promo._id}
+                      onClick={() => {
+                        if (promo.canUse) {
+                          setSelectedPromotion(promo);
+                          setShowPromotionPicker(false);
+                        } else {
+                          toast.error(`Bạn đã sử dụng khuyến mãi này ${promo.userUsageCount}/${promo.maxUsagePerUser} lần`);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg transition ${selectedPromotion?._id === promo._id
+                          ? 'bg-green-500/20 border border-green-500/50'
+                          : promo.canUse
+                            ? 'bg-white/5 hover:bg-white/10 border border-transparent'
+                            : 'bg-gray-800/50 border border-transparent opacity-60 cursor-not-allowed'
+                        }`}
+                      disabled={!promo.canUse}
+                    >
+                      <div className='text-left'>
+                        <div className='flex items-center gap-2'>
+                          <span className={`font-medium ${!promo.canUse ? 'text-gray-500' : ''}`}>{promo.name}</span>
+                          <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${promo.canUse ? 'bg-green-500/30 text-green-300' : 'bg-gray-600/30 text-gray-400'
+                            }`}>
+                            -{promo.discountPercent}%
+                          </span>
+                        </div>
+                        {promo.description && (
+                          <p className='text-xs text-gray-400 mt-1 line-clamp-1'>{promo.description}</p>
+                        )}
+                        <div className='text-xs mt-1'>
+                          {promo.maxUsagePerUser > 0 ? (
+                            <span className={promo.canUse ? 'text-yellow-400' : 'text-red-400'}>
+                              Đã dùng: {promo.userUsageCount}/{promo.maxUsagePerUser} lần
+                            </span>
+                          ) : (
+                            <span className='text-gray-500'>Không giới hạn lượt</span>
+                          )}
+                        </div>
+                      </div>
+                      {selectedPromotion?._id === promo._id && (
+                        <Check className='w-5 h-5 text-green-400' />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Thông báo nếu chưa đăng nhập */}
+        {!user && (
+          <div className='mt-8 w-full max-w-md'>
+            <div className='bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-center gap-3'>
+              <Gift className='w-6 h-6 text-yellow-400' />
+              <p className='text-sm text-yellow-400'>
+                Đăng nhập để xem và sử dụng các khuyến mãi!
+              </p>
             </div>
           </div>
         )}
@@ -537,14 +643,14 @@ const SeatLayout = () => {
                 </div>
 
                 {/* Khuyến mãi */}
-                {activePromotion && (
+                {selectedPromotion && selectedPromotion.canUse && (
                   <div className='flex justify-between text-sm'>
                     <span className='text-green-400 flex items-center gap-1'>
                       <Percent className='w-4 h-4' />
-                      Khuyến mãi ({activePromotion.discountPercent}%):
+                      Khuyến mãi ({selectedPromotion.discountPercent}%):
                     </span>
                     <span className='font-medium text-green-400'>
-                      -{vndFormat(Math.floor(calculateTotalAmount() * activePromotion.discountPercent / 100))}
+                      -{vndFormat(Math.floor(calculateTotalAmount() * selectedPromotion.discountPercent / 100))}
                     </span>
                   </div>
                 )}
@@ -554,7 +660,7 @@ const SeatLayout = () => {
               <div className='flex justify-between items-center'>
                 <span className='text-lg font-semibold'>Tổng cộng:</span>
                 <div className='text-right'>
-                  {activePromotion && (
+                  {selectedPromotion && selectedPromotion.canUse && (
                     <span className='text-lg text-gray-500 line-through mr-2'>
                       {vndFormat(calculateTotalAmount())}
                     </span>
@@ -565,9 +671,9 @@ const SeatLayout = () => {
                 </div>
               </div>
 
-              {activePromotion && (
+              {selectedPromotion && selectedPromotion.canUse && (
                 <p className='text-xs text-green-400 text-right mt-2'>
-                  Bạn tiết kiệm được {vndFormat(Math.floor(calculateTotalAmount() * activePromotion.discountPercent / 100))}! 🎉
+                  Bạn tiết kiệm được {vndFormat(Math.floor(calculateTotalAmount() * selectedPromotion.discountPercent / 100))}! 🎉
                 </p>
               )}
             </div>

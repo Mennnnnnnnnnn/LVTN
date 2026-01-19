@@ -34,13 +34,29 @@ const ListPromotions = () => {
         endDate: '',
         type: 'special',
         applicableDays: [],
-        maxUsage: 0
+        maxUsage: 0,
+        maxUsagePerUser: 0,
+        // Banner fields
+        bannerImage: '',
+        bannerTitle: '',
+        bannerSubtitle: '',
+        showBanner: false,
+        bannerOrder: 0,
+        // Default banner fields
+        isDefaultBanner: false,
+        defaultBannerMovieTitle: '',
+        defaultBannerGenres: '',
+        defaultBannerYear: '',
+        defaultBannerDuration: '',
+        defaultBannerDescription: '',
+        defaultBannerBackground: ''
     });
 
     const promotionTypes = [
         { value: 'holiday', label: 'Ngày lễ', icon: '🎉' },
         { value: 'special', label: 'Đặc biệt', icon: '⭐' },
-        { value: 'weekly', label: 'Hàng tuần', icon: '📅' }
+        { value: 'weekly', label: 'Hàng tuần', icon: '📅' },
+        { value: 'default_banner', label: 'Banner mặc định trang chủ', icon: '🎬' }
     ];
 
     const daysOfWeek = [
@@ -86,7 +102,20 @@ const ListPromotions = () => {
             endDate: '',
             type: 'special',
             applicableDays: [],
-            maxUsage: 0
+            maxUsage: 0,
+            maxUsagePerUser: 0,
+            bannerImage: '',
+            bannerTitle: '',
+            bannerSubtitle: '',
+            showBanner: false,
+            bannerOrder: 0,
+            isDefaultBanner: false,
+            defaultBannerMovieTitle: '',
+            defaultBannerGenres: '',
+            defaultBannerYear: '',
+            defaultBannerDuration: '',
+            defaultBannerDescription: '',
+            defaultBannerBackground: ''
         });
         setEditingPromotion(null);
     };
@@ -108,7 +137,20 @@ const ListPromotions = () => {
             endDate: new Date(promotion.endDate).toISOString().split('T')[0],
             type: promotion.type,
             applicableDays: promotion.applicableDays || [],
-            maxUsage: promotion.maxUsage || 0
+            maxUsage: promotion.maxUsage || 0,
+            maxUsagePerUser: promotion.maxUsagePerUser || 0,
+            bannerImage: promotion.bannerImage || '',
+            bannerTitle: promotion.bannerTitle || '',
+            bannerSubtitle: promotion.bannerSubtitle || '',
+            showBanner: promotion.showBanner || false,
+            bannerOrder: promotion.bannerOrder || 0,
+            isDefaultBanner: promotion.isDefaultBanner || false,
+            defaultBannerMovieTitle: promotion.defaultBannerMovieTitle || '',
+            defaultBannerGenres: promotion.defaultBannerGenres || '',
+            defaultBannerYear: promotion.defaultBannerYear || '',
+            defaultBannerDuration: promotion.defaultBannerDuration || '',
+            defaultBannerDescription: promotion.defaultBannerDescription || '',
+            defaultBannerBackground: promotion.defaultBannerBackground || ''
         });
         setShowModal(true);
     };
@@ -243,10 +285,10 @@ const ListPromotions = () => {
                         <div
                             key={promotion._id}
                             className={`p-4 rounded-xl border ${isPromotionActiveNow(promotion)
-                                    ? 'border-green-500/50 bg-green-500/5'
-                                    : promotion.isActive
-                                        ? 'border-gray-700 bg-white/5'
-                                        : 'border-gray-800 bg-gray-900/50 opacity-60'
+                                ? 'border-green-500/50 bg-green-500/5'
+                                : promotion.isActive
+                                    ? 'border-gray-700 bg-white/5'
+                                    : 'border-gray-800 bg-gray-900/50 opacity-60'
                                 }`}
                         >
                             <div className='flex flex-wrap items-start justify-between gap-4'>
@@ -291,13 +333,28 @@ const ListPromotions = () => {
                                             Đã dùng: {promotion.usageCount || 0}/{promotion.maxUsage} lượt
                                         </div>
                                     )}
+                                    {promotion.maxUsagePerUser > 0 && (
+                                        <div className='mt-1 text-sm text-yellow-400'>
+                                            Giới hạn: {promotion.maxUsagePerUser} lượt/tài khoản
+                                        </div>
+                                    )}
+                                    {promotion.isDefaultBanner && (
+                                        <div className='mt-1 text-sm text-blue-400'>
+                                            🎬 Đây là Banner mặc định trang chủ
+                                        </div>
+                                    )}
+                                    {promotion.showBanner && !promotion.isDefaultBanner && (
+                                        <div className='mt-1 text-sm text-purple-400'>
+                                            🖼️ Hiển thị banner khuyến mãi
+                                        </div>
+                                    )}
                                 </div>
                                 <div className='flex items-center gap-2'>
                                     <button
                                         onClick={() => toggleStatus(promotion._id)}
                                         className={`p-2 rounded-lg transition ${promotion.isActive
-                                                ? 'text-green-400 hover:bg-green-500/20'
-                                                : 'text-gray-500 hover:bg-gray-700'
+                                            ? 'text-green-400 hover:bg-green-500/20'
+                                            : 'text-gray-500 hover:bg-gray-700'
                                             }`}
                                         title={promotion.isActive ? 'Tắt khuyến mãi' : 'Bật khuyến mãi'}
                                     >
@@ -418,8 +475,8 @@ const ListPromotions = () => {
                                                 type='button'
                                                 onClick={() => handleDayToggle(day.value)}
                                                 className={`px-3 py-1.5 rounded-lg text-sm transition ${formData.applicableDays.includes(day.value)
-                                                        ? 'bg-primary text-white'
-                                                        : 'bg-white/5 border border-gray-700 hover:border-primary'
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-white/5 border border-gray-700 hover:border-primary'
                                                     }`}
                                             >
                                                 {day.label}
@@ -471,6 +528,196 @@ const ListPromotions = () => {
                                     min={0}
                                 />
                                 <p className='text-xs text-gray-500 mt-1'>Nhập 0 để không giới hạn số lượt</p>
+                            </div>
+
+                            {/* Max Usage Per User */}
+                            <div>
+                                <label className='block text-sm text-gray-400 mb-1'>
+                                    Số lượt tối đa cho mỗi tài khoản
+                                </label>
+                                <input
+                                    type='number'
+                                    value={formData.maxUsagePerUser}
+                                    onChange={e => setFormData({ ...formData, maxUsagePerUser: parseInt(e.target.value) || 0 })}
+                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                    placeholder='0 = Không giới hạn'
+                                    min={0}
+                                />
+                                <p className='text-xs text-gray-500 mt-1'>Nhập 0 để không giới hạn. VD: 1 = mỗi tài khoản chỉ được dùng 1 lần</p>
+                            </div>
+
+                            {/* ============== BANNER KHUYẾN MÃI ============== */}
+                            <div className='border-t border-gray-700 pt-4 mt-4'>
+                                <h3 className='text-base font-semibold mb-3'>🖼️ Banner Khuyến Mãi (Slider trang chủ)</h3>
+
+                                {/* Show Banner */}
+                                <div className='flex items-center gap-2 mb-4'>
+                                    <input
+                                        type='checkbox'
+                                        id='showBanner'
+                                        checked={formData.showBanner}
+                                        onChange={e => setFormData({ ...formData, showBanner: e.target.checked })}
+                                        className='w-4 h-4'
+                                    />
+                                    <label htmlFor='showBanner' className='text-sm text-gray-300'>
+                                        Hiển thị banner khuyến mãi trên trang chủ
+                                    </label>
+                                </div>
+
+                                {formData.showBanner && (
+                                    <>
+                                        <div className='space-y-4'>
+                                            {/* Banner Image */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>URL hình ảnh banner</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.bannerImage}
+                                                    onChange={e => setFormData({ ...formData, bannerImage: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='https://example.com/banner.jpg'
+                                                />
+                                            </div>
+
+                                            {/* Banner Title */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Tiêu đề banner</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.bannerTitle}
+                                                    onChange={e => setFormData({ ...formData, bannerTitle: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='VD: GIẢM GIÁ SỐC 50%'
+                                                />
+                                            </div>
+
+                                            {/* Banner Subtitle */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Phụ đề banner</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.bannerSubtitle}
+                                                    onChange={e => setFormData({ ...formData, bannerSubtitle: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='VD: Cho tất cả các suất chiếu'
+                                                />
+                                            </div>
+
+                                            {/* Banner Order */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Thứ tự hiển thị</label>
+                                                <input
+                                                    type='number'
+                                                    value={formData.bannerOrder}
+                                                    onChange={e => setFormData({ ...formData, bannerOrder: parseInt(e.target.value) || 0 })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='0'
+                                                    min={0}
+                                                />
+                                                <p className='text-xs text-gray-500 mt-1'>Số nhỏ hiển thị trước</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* ============== BANNER MẶC ĐỊNH TRANG CHỦ ============== */}
+                            <div className='border-t border-gray-700 pt-4 mt-4'>
+                                <h3 className='text-base font-semibold mb-3'>🎬 Banner Mặc Định Trang Chủ</h3>
+
+                                {/* Is Default Banner */}
+                                <div className='flex items-center gap-2 mb-4'>
+                                    <input
+                                        type='checkbox'
+                                        id='isDefaultBanner'
+                                        checked={formData.isDefaultBanner}
+                                        onChange={e => setFormData({ ...formData, isDefaultBanner: e.target.checked })}
+                                        className='w-4 h-4'
+                                    />
+                                    <label htmlFor='isDefaultBanner' className='text-sm text-gray-300'>
+                                        Đây là banner mặc định trang chủ (thay thế Marvel)
+                                    </label>
+                                </div>
+
+                                {formData.isDefaultBanner && (
+                                    <>
+                                        <div className='space-y-4'>
+                                            {/* Default Banner Background */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>URL hình nền</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.defaultBannerBackground}
+                                                    onChange={e => setFormData({ ...formData, defaultBannerBackground: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='https://example.com/background.jpg'
+                                                />
+                                            </div>
+
+                                            {/* Default Banner Movie Title */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Tên phim</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.defaultBannerMovieTitle}
+                                                    onChange={e => setFormData({ ...formData, defaultBannerMovieTitle: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='VD: Guardians of the Galaxy'
+                                                />
+                                            </div>
+
+                                            {/* Default Banner Genres */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Thể loại</label>
+                                                <input
+                                                    type='text'
+                                                    value={formData.defaultBannerGenres}
+                                                    onChange={e => setFormData({ ...formData, defaultBannerGenres: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                    placeholder='VD: Hành động | Phiêu lưu | Khoa học viễn tưởng'
+                                                />
+                                            </div>
+
+                                            <div className='grid grid-cols-2 gap-4'>
+                                                {/* Default Banner Year */}
+                                                <div>
+                                                    <label className='block text-sm text-gray-400 mb-1'>Năm phát hành</label>
+                                                    <input
+                                                        type='text'
+                                                        value={formData.defaultBannerYear}
+                                                        onChange={e => setFormData({ ...formData, defaultBannerYear: e.target.value })}
+                                                        className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                        placeholder='VD: 2018'
+                                                    />
+                                                </div>
+
+                                                {/* Default Banner Duration */}
+                                                <div>
+                                                    <label className='block text-sm text-gray-400 mb-1'>Thời lượng</label>
+                                                    <input
+                                                        type='text'
+                                                        value={formData.defaultBannerDuration}
+                                                        onChange={e => setFormData({ ...formData, defaultBannerDuration: e.target.value })}
+                                                        className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none'
+                                                        placeholder='VD: 2h 8m'
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Default Banner Description */}
+                                            <div>
+                                                <label className='block text-sm text-gray-400 mb-1'>Mô tả ngắn</label>
+                                                <textarea
+                                                    value={formData.defaultBannerDescription}
+                                                    onChange={e => setFormData({ ...formData, defaultBannerDescription: e.target.value })}
+                                                    className='w-full px-4 py-2 bg-white/5 border border-gray-700 rounded-lg focus:border-primary outline-none resize-none'
+                                                    rows={3}
+                                                    placeholder='Mô tả ngắn về phim...'
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Submit Button */}
